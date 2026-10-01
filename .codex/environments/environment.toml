@@ -1,0 +1,10 @@
+version = 1
+name = "Boring Notch Pedro Edition"
+
+[setup]
+script = ""
+
+[[actions]]
+name = "Run"
+icon = "run"
+command = "./script/build_and_run.sh --verify"
