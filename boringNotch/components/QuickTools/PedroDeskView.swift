@@ -37,6 +37,7 @@ private struct PedroDeskReply: Decodable {
     let detail: String?
     let running: Bool?
     let connected: [String]?
+    let inputMode: String?
 }
 
 @MainActor final class PedroDeskManager: ObservableObject {
@@ -63,6 +64,7 @@ private struct PedroDeskReply: Decodable {
     private var deskVersion = 0
     @Published var deskConnected: [String] = []
     @Published var deskDetail = ""
+    @Published var deskInputMode = "deskflow"
     @Published var searching = false
     @Published var acting = false
     @Published var previewURL: URL?
@@ -217,6 +219,7 @@ private struct PedroDeskReply: Decodable {
             if let result = try? JSONDecoder().decode(PedroDeskReply.self, from: data), result.ok != false {
                 if let running = result.running { deskRunning = running }
                 if let connected = result.connected { deskConnected = connected }
+                if let inputMode = result.inputMode { deskInputMode = inputMode }
                 deskDetail = result.detail ?? ""
                 if mutation { deskflow() }
             } else {
@@ -494,7 +497,7 @@ struct PedroContinuousDeskView: View {
                     computer(layout == "x99-left" ? "alienware" : "x99")
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 HStack(spacing: 8) {
-                    Text(manager.deskError ?? "⌃⌥Home · voltar ao Mac").font(.system(size: 10))
+                    Text(manager.deskError ?? (manager.deskInputMode == "mesh" ? "⌃⌥Home · controle local" : "⌃⌥Home · voltar ao Mac")).font(.system(size: 10))
                         .foregroundStyle(manager.deskError == nil ? Color.secondary : Color.orange).lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading).help(manager.deskError ?? "Teclado, mouse e área de transferência")
                     Button { manager.deskflow(manager.deskRunning ? "stop" : "start", layout: layout) } label: {

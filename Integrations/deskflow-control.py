@@ -5,6 +5,11 @@ from pathlib import Path
 BASE=Path.home()/'.local/share/pedro-notch/deskflow';BASE.mkdir(mode=0o700,parents=True,exist_ok=True)
 CORE='/Applications/Deskflow.app/Contents/MacOS/deskflow-core'
 CONFIG=BASE/'server.ini'
+AGENT='local.insight-notch.deskflow'
+
+def session_agent():
+    spec=importlib.util.spec_from_file_location('macos_session_agent',Path(__file__).with_name('macos-session-agent.py'))
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
 
 def alive(pid):
     try:os.kill(int(pid),0);return True
@@ -22,13 +27,14 @@ def allowed():
 
 def stop():
     session=state()
+    session_agent().stop(AGENT,[CORE,'server','-s',str(CONFIG)])
     for key in ('server','x99','alienware','monitor'):
         pid=session.get(key)
         if alive(pid):
             try:os.kill(pid,signal.SIGTERM)
             except OSError:pass
     (BASE/'session.json').write_text('{}')
-    return dict(ok=True,detail='Mesa contínua pausada')
+    return dict(ok=True,running=False,connected=[],detail='Mesa contínua pausada')
 
 def main(request):
     action=request.get('action','status');session=state()
@@ -43,20 +49,21 @@ def main(request):
         except (OSError,ValueError):pass
         return dict(ok=True,running=alive(session.get('server')),connected=connected,detail=text[-1400:],installed=Path(CORE).exists())
     if action!='start':raise ValueError('Ação inválida')
-    if alive(session.get('server')):return dict(ok=True,detail='Sessão já iniciada')
+    if alive(session.get('server')):return dict(ok=True,running=True,detail='Sessão já iniciada')
     layout=request.get('layout','x99-left')
     if layout not in ('x99-left','alienware-left'):raise ValueError('Disposição inválida')
     left,right=('X99','Alienware') if layout=='x99-left' else ('Alienware','X99')
     external=BASE/'screens.conf'
-    external.write_text('section: links\n Mac:\n  left = '+left+'\n  right = '+right+'\n '+left+':\n  right = Mac\n '+right+':\n  left = Mac\nend\nsection: options\n keystroke(Control+Alt+Home) = switchToScreen(Mac)\nend\n')
+    links=(' Mac:\n  left = '+left+'\n  right = '+right+'\n '+left+':\n  right = Mac\n '+right+':\n  left = Mac\n') if request.get('inputMode')!='mesh' else ''
+    external.write_text('section: links\n'+links+'end\nsection: options\n keystroke(Control+Alt+Home) = switchToScreen(Mac)\nend\n')
     CONFIG.write_text('[core]\ncomputerName=Mac\ncoreMode=Server\ninterface=127.0.0.1\nport=24800\nprocessMode=Desktop\n[computer_Mac]\nname=Mac\n[computer_X99]\nname=X99\n[computer_Alienware]\nname=Alienware\n[security]\ntlsEnabled=false\n[server]\nexternalConfig=true\nexternalConfigFile='+str(external)+'\nenableClipboard=true\n[log]\nlevel=INFO\n')
-    with (BASE/'server.log').open('w') as log:
-        child=subprocess.Popen([CORE,'server','-s',str(CONFIG)],stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
-    session={'server':child.pid};(BASE/'session.json').write_text(json.dumps(session))
+    (BASE/'server.log').write_text('')
+    pid=session_agent().start(AGENT,[CORE,'server','-s',str(CONFIG)],BASE,BASE/'server.log')
+    session={'server':pid};(BASE/'session.json').write_text(json.dumps(session))
     time.sleep(1)
-    if child.poll() is not None:raise RuntimeError((BASE/'server.log').read_text(errors='replace')[-1400:])
+    if not alive(pid):raise RuntimeError((BASE/'server.log').read_text(errors='replace')[-1400:])
     with (BASE/'monitor.log').open('w') as log:
-        monitor=subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'watch',str(child.pid)],stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
+        monitor=subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'watch',str(pid)],stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True)
     session['monitor']=monitor.pid;(BASE/'session.json').write_text(json.dumps(session))
     time.sleep(.3)
     for host in ('x99','alienware'):

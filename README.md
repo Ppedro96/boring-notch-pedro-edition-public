@@ -22,7 +22,7 @@ Esta documentação explica os recursos, a arquitetura e as etapas de configura�
 | Mídia remota | Seleção de player, faixa anterior, reprodução, pausa e próxima faixa nos players expostos pelo KDE Connect. |
 | Arquivos | Cópias acompanhadas, busca por nome em locais permitidos e recebimento de arquivos remotos. |
 | Processamento | Filas persistentes para vídeo MP4, áudio M4A e transcrição local, com progresso, cancelamento e verificação de integridade. |
-| Mesa contínua | Teclado, mouse e clipboard compartilhados com Deskflow, disposição lateral e túneis SSH privados. |
+| Mesa contínua | Entrada bidirecional com Lan Mouse: teclados e mouses de cada computador podem controlar os demais. Mesmo Conectar/Pausar, disposição lateral e canal Deskflow por SSH. |
 | Apps Android | Espelhamento e aplicativos em janelas com scrcpy, listagem de apps, ícones próprios e encerramento das janelas temporárias. |
 | Recuperação de depuração | Helper Android opcional para tentar recuperar a depuração sem fio após mudanças de rede, respeitando pausa e autorizações do sistema. |
 | Telemetria | Recursos locais do macOS e sondas SSH para Linux, Windows, armazenamento e virtualização, além de feeds opcionais de serviços e alertas. |
@@ -38,7 +38,7 @@ O painel macOS coordena a interface. Helpers independentes cuidam das conexões,
 ```mermaid
 flowchart LR
     N[Notch no macOS] --> K[KDE Connect]
-    N --> D[Deskflow por SSH]
+    N --> D[Mesa: Lan Mouse e Deskflow]
     N --> W[Workers de arquivos]
     C[Clientes Android, macOS e Windows] --> B[Central de baterias autenticada]
     B --> V[Widgets]
@@ -46,7 +46,7 @@ flowchart LR
 
 - KDE Connect mantém o pareamento e oferece notificações, mídia, bateria e compartilhamento.
 - SSH transporta comandos controlados e arquivos entre o painel e os destinos autorizados.
-- Deskflow compartilha entrada e clipboard por conexões privadas.
+- A Mesa coordena Lan Mouse para entrada bidirecional e mantém o canal Deskflow por conexões privadas. O modo anterior do Deskflow continua disponível quando a integração não está configurada.
 - Workers executam conversões, transcrição e busca, com estado persistente por trabalho.
 - A central de baterias recebe dados de cada cliente diretamente. Os dispositivos móveis não dependem do computador macOS acordado para sincronizar entre si.
 
@@ -73,7 +73,7 @@ A assinatura local pode exigir nova autorização de privacidade após uma recom
 | Dispositivos móveis | KDE Connect nas duas pontas e pareamento confirmado pelo usuário. |
 | Janelas Android | Android Platform Tools, scrcpy e depuração autorizada. |
 | Helpers Android | JDK 21, plataforma Android API 36 e Build Tools correspondentes. |
-| Mesa contínua | Deskflow nos sistemas participantes e permissões de entrada. |
+| Mesa contínua | Deskflow e, para entrada bidirecional, Lan Mouse nos sistemas participantes, com permissões de entrada. |
 | Processamento | Python 3 nos destinos e FFmpeg para áudio e vídeo. |
 | Transcrição | Ambiente Python com faster-whisper e modelo compatível disponível localmente. |
 | Widget macOS | Projeto de widget compilado no Xcode; XcodeGen caso seja necessário regenerá-lo. |
@@ -144,16 +144,23 @@ A seleção de destino pode ser automática ou explícita. A transcrição atual
 
 ## Configurar a mesa contínua
 
-1. Prepare Deskflow no computador que compartilha teclado e mouse e nos clientes.
-2. Defina nomes internos de tela e uma disposição consistente nos componentes, usando seus próprios dados locais.
-3. Autorize o compartilhamento de entrada em cada sistema.
-4. Confirme o acesso SSH usado pelos túneis.
-5. Escolha a disposição na interface e inicie a sessão.
-6. Verifique os clientes conectados e teste fisicamente a passagem do cursor pelas bordas.
+1. Prepare os pacotes oficiais do Deskflow e do Lan Mouse em cada sistema, verificando a integridade dos arquivos recebidos.
+2. Mantenha um perfil privado com os endereços dos participantes e uma identidade de certificado diferente para cada um. Autorize somente os certificados dos outros participantes; esses dados não fazem parte do repositório.
+3. Defina a disposição lateral e confirme o acesso SSH usado pelo controlador e pelos túneis.
+4. Autorize o compartilhamento de entrada em cada sistema. Preserve os certificados e a autorização de recebimento entre sessões.
+5. No KDE compatível, a captura por layer-shell evita recriar o diálogo de captura; o recebimento por libei reaproveita o token de autorização salvo pelo sistema. Esse token deve permanecer privado e não deve ser copiado entre computadores.
+6. Escolha a disposição na interface e inicie a sessão. O controlador prepara os mecanismos de entrada antes de retirar do Deskflow o encaminhamento pelas bordas. Se a ativação falhar, restaura o modo anterior.
+7. Teste cada mouse e teclado nos outros computadores, inclusive a combinação de mouse de uma origem com teclado de outra no mesmo destino. Teste copiar/colar nos aplicativos usados.
 
-O servidor escuta somente na interface local e os clientes chegam por túneis SSH. Esse transporte depende do isolamento da conexão. Um processo aberto não prova que o cliente esteja conectado.
+O servidor do Deskflow escuta somente na interface local e seus clientes chegam por túneis SSH. O Lan Mouse usa um canal direto criptografado, com autorização por certificado. Um processo aberto não prova que o cliente esteja conectado.
 
-Control+Option+Home solicita o retorno ao computador macOS. Teclado, mouse e clipboard dependem de uma sessão gráfica disponível e das permissões concedidas.
+Na integração bidirecional, Control+Option/Alt+Home devolve o controle à origem física daquele teclado. No modo anterior, Control+Option+Home solicita o retorno ao computador macOS. A interface indica o comportamento ativo. As bordas externas conectam diretamente as duas extremidades da disposição, formando um ciclo sem enviar eventos para dois destinos ao mesmo tempo.
+
+Conectar/Pausar controla os componentes dos três sistemas. Pausar encerra os processos pertencentes à sessão, liberando teclas e ponteiros, mas preserva as identidades e autorizações salvas. Permissões revogadas, atualizações do sistema ou a troca de sessão gráfica podem exigir nova autorização.
+
+No macOS, os mecanismos de entrada são iniciados pelo gerenciador da sessão gráfica, usando a autorização própria dos aplicativos. Assim, uma recompilação do Notch não substitui a identidade autorizada desses mecanismos. O token do KDE é mantido em armazenamento privado persistente e renovado após cada restauração bem-sucedida.
+
+O Lan Mouse não fornece sincronização de clipboard. O canal Deskflow permanece conectado, mas seu clipboard depende da tela ativa no próprio Deskflow; a malha bidirecional de entrada ainda não garante copiar/colar entre todos os destinos.
 
 No Windows, o cliente usa uma tarefa na sessão gráfica do usuário com um iniciador sem console. Não é necessário manter uma janela de terminal aberta. O iniciador acompanha o processo para que pausar a sessão também encerre o cliente corretamente.
 
@@ -240,4 +247,4 @@ Alterações na implementação exigem verificar os componentes afetados e recom
 
 ## Origem e licença
 
-Derivado do Boring Notch 2.7.3, sob GPLv3. Os créditos originais e os avisos de terceiros acompanham o código. KDE Connect, scrcpy, Deskflow, FFmpeg e demais componentes externos mantêm suas próprias licenças.
+Derivado do Boring Notch 2.7.3, sob GPLv3. Os créditos originais e os avisos de terceiros acompanham o código. KDE Connect, scrcpy, Deskflow, Lan Mouse, FFmpeg e demais componentes externos mantêm suas próprias licenças.

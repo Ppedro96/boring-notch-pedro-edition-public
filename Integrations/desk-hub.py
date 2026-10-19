@@ -206,6 +206,15 @@ def main(r):
 
 def deskflow(r):
     import importlib.util
+    path=Path(__file__).with_name('lan-mouse-control.py')
+    if path.exists():
+        spec=importlib.util.spec_from_file_location('lan_mouse_control',path)
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        return module.main(r,legacy_deskflow)
+    return legacy_deskflow(r)
+
+def legacy_deskflow(r):
+    import importlib.util
     spec=importlib.util.spec_from_file_location('deskflow_control',Path(__file__).with_name('deskflow-control.py'))
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     action=r.get('action','status')
