@@ -1989,7 +1989,7 @@
      QString m_cacheRoot;
 --- /dev/null
 +++ b/src/continuity/ContinuityProvider.cpp
-@@ -0,0 +1,629 @@
+@@ -0,0 +1,659 @@
 +#include "ContinuityProvider.h"
 +#include <QClipboard>
 +#include <QCryptographicHash>
@@ -2108,13 +2108,16 @@
 +    stop();
 +    // Destructor is bounded and still uses the independently verified group after leader exit.
 +    if (m_ownedGroup > 0) {
-+        ::kill(-m_ownedGroup, SIGKILL);
-+        m_ownedGroup = 0;
++        m_groupKilled = ::kill(-m_ownedGroup, SIGKILL) == 0 || errno == ESRCH;
++        if (m_groupKilled)
++            m_ownedGroup = 0;
 +    }
 +    if (m_process.state() != QProcess::NotRunning) {
 +        m_process.kill();
 +        m_process.waitForFinished(1000);
 +    }
++    if (m_ownedGroup <= 0 && m_process.state() == QProcess::NotRunning)
++        settleRequests();
 +}
 +void ContinuityProvider::start()
 +{
@@ -2155,6 +2158,13 @@
 +        if (p.callback)
 +            p.callback({ { "ok", false }, { "error", reason } });
 +}
++void ContinuityProvider::settleRequests()
++{
++    auto unsettled = std::move(m_unsettled);
++    m_unsettled.clear();
++    for (const auto& settled : unsettled)
++        settled();
++}
 +void ContinuityProvider::cleanup(bool restart)
 +{
 +    if (!restart)
@@ -2171,41 +2181,53 @@
 +        ::kill(-m_ownedGroup, SIGTERM);
 +    else if (m_process.state() != QProcess::NotRunning)
 +        m_process.terminate();
++    m_groupKilled = false;
 +    m_cleanupTicks = 0;
 +    m_cleanup.start();
 +}
 +void ContinuityProvider::finishCleanup()
 +{
 +    ++m_cleanupTicks;
-+    if (m_cleanupTicks == 3) {
++    if (m_cleanupTicks >= 3 && !m_groupKilled) {
 +        if (m_ownedGroup > 0)
-+            ::kill(-m_ownedGroup, SIGKILL);
++            m_groupKilled = ::kill(-m_ownedGroup, SIGKILL) == 0 || errno == ESRCH;
 +        if (m_process.state() != QProcess::NotRunning)
 +            m_process.kill();
 +    }
 +    bool groupGone = m_ownedGroup <= 0 || (::kill(-m_ownedGroup, 0) < 0 && errno == ESRCH);
-+    if (m_process.state() != QProcess::NotRunning || (!groupGone && m_cleanupTicks < 12))
++    if (m_process.state() != QProcess::NotRunning
++        || (!groupGone && (!m_groupKilled || m_cleanupTicks < 12)))
 +        return;
 +    // After bounded escalation no executable member can remain; zombies may await system reaping.
 +    m_cleanup.stop();
 +    m_ownedGroup = 0;
 +    m_cleaning = false;
 +    m_buffer.clear();
++    settleRequests();
 +    if (!m_stopping) {
 +        m_restart.start(m_restartDelay);
 +        m_restartDelay = std::min(5000, m_restartDelay * 2);
 +    }
 +}
-+void ContinuityProvider::request(QVariantMap value, Reply callback, int timeoutMs)
++void ContinuityProvider::request(
++    QVariantMap value, Reply callback, int timeoutMs, std::function<void()> settled)
 +{
 +    if (!m_enabled || !m_handshake || m_cleaning) {
 +        if (callback)
 +            callback({ { "ok", false }, { "error", "Continuidade indisponível" } });
++        if (settled)
++            settled();
 +        return;
 +    }
-+    if (m_pending.size() >= 32 || m_process.bytesToWrite() > 2 * maxFrame) {
++    qsizetype outstanding = m_pending.size();
++    for (auto it = m_unsettled.cbegin(); it != m_unsettled.cend(); ++it)
++        if (!m_pending.contains(it.key()))
++            ++outstanding;
++    if (outstanding >= 32 || m_process.bytesToWrite() > 2 * maxFrame) {
 +        if (callback)
 +            callback({ { "ok", false }, { "error", "Integração ocupada" } });
++        if (settled)
++            settled();
 +        return;
 +    }
 +    const auto id = uuid();
@@ -2215,9 +2237,13 @@
 +    if (data.size() > maxFrame) {
 +        if (callback)
 +            callback({ { "ok", false }, { "error", "Conteúdo excede o limite" } });
++        if (settled)
++            settled();
 +        return;
 +    }
 +    m_pending.insert(id, { callback, QDateTime::currentMSecsSinceEpoch() + timeoutMs });
++    if (settled)
++        m_unsettled.insert(id, std::move(settled));
 +    m_process.write(data + '\n');
 +}
 +void ContinuityProvider::readOutput()
@@ -2265,9 +2291,13 @@
 +    if (!m_handshake)
 +        return;
 +    if (frame.contains("id")) {
-+        auto p = m_pending.take(frame.value("id").toString());
++        const auto id = frame.value("id").toString();
++        auto p = m_pending.take(id);
++        auto settled = m_unsettled.take(id);
 +        if (p.callback)
 +            p.callback(frame);
++        if (settled)
++            settled();
 +        return;
 +    }
 +    const auto event = frame.value("event").toString();
@@ -2621,7 +2651,7 @@
 +}
 --- /dev/null
 +++ b/src/continuity/ContinuityProvider.h
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,99 @@
 +#pragma once
 +#include <QHash>
 +#include <QObject>
@@ -2663,7 +2693,9 @@
 +    qint64 revision(const QString& topic) const { return m_revisions.value(topic); }
 +    void start();
 +    void stop();
-+    void request(QVariantMap request, Reply callback = {}, int timeoutMs = 60000);
++    // Settlement follows a terminal reply or confirmed transport cancellation, not a UI deadline.
++    void request(QVariantMap request, Reply callback = {}, int timeoutMs = 60000,
++        std::function<void()> settled = {});
 +    void mutate(const QString& op, const QString& topic, const QString& key,
 +        const QVariantMap& payload = {}, Reply callback = {});
 +    void setLocalMedia(const QVariantMap& snapshot);
@@ -2688,6 +2720,8 @@
 +        const QString& action, const QVariantMap& arguments, const QString& commandId);
 +
 +private:
++    friend class ClipboardStoreTest;
++    void settleRequests();
 +    struct Pending {
 +        Reply callback;
 +        qint64 deadline;
@@ -2701,12 +2735,14 @@
 +    void publishMedia();
 +    QVariantMap find(const QString& topic, const QString& key) const;
 +    QString m_config, m_script, m_peer, m_state = "disabled", m_message, m_selectedHost;
++    bool m_groupKilled = false;
 +    bool m_enabled = false, m_stopping = false, m_handshake = false, m_cleaning = false;
 +    int m_ownedGroup = 0, m_restartDelay = 200, m_cleanupTicks = 0;
 +    QByteArray m_buffer;
 +    QProcess m_process;
 +    QTimer m_deadlines, m_restart, m_cleanup, m_heartbeat, m_mediaExpiry;
 +    QHash<QString, Pending> m_pending;
++    QHash<QString, std::function<void()>> m_unsettled;
 +    QHash<QString, QVariantList> m_items;
 +    QHash<QString, qint64> m_revisions;
 +    QHash<QString, QByteArray> m_taskHashes;
@@ -3019,7 +3055,7 @@
  };
 --- a/src/local/ClipboardStore.cpp
 +++ b/src/local/ClipboardStore.cpp
-@@ -1,262 +1,700 @@
+@@ -1,262 +1,796 @@
  #include "local/ClipboardStore.h"
 -
 +#include "continuity/ContinuityProvider.h"
@@ -3031,6 +3067,8 @@
 -#include <QDBusInterface>
 -#include <QDBusReply>
  #include <QDir>
++#include <QDirIterator>
++#include <QElapsedTimer>
  #include <QFile>
 -#include <QGuiApplication>
 +#include <QFileInfo>
@@ -3041,6 +3079,7 @@
 +#include <QPointer>
 +#include <QProcess>
  #include <QSaveFile>
++#include <QRegularExpression>
  #include <QStandardPaths>
  #include <QTimer>
 -
@@ -3122,13 +3161,21 @@
 -              ? QStandardPaths::writableLocation(
 -                    QStandardPaths::AppLocalDataLocation)
 -              : dataRoot)
+-{
 +    , m_dataRoot(root.isEmpty()
 +              ? QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
 +              : root)
- {
++{
++    m_imageCleanupTimer = new QTimer(this);
++    m_imageCleanupTimer->setSingleShot(true);
++    connect(m_imageCleanupTimer, &QTimer::timeout, this, &ClipboardStore::cleanImageCacheSlice);
++    auto maintenance = new QTimer(this);
++    maintenance->setInterval(15 * 60 * 1000);
++    connect(maintenance, &QTimer::timeout, this, &ClipboardStore::scheduleImageCleanup);
++    maintenance->start();
      load();
      prune();
- }
+-}
 -
 -QVariantList ClipboardStore::items() const
 -{
@@ -3138,6 +3185,8 @@
 -QString ClipboardStore::recordText(const QString &text, qint64 timestamp)
 -{
 -    if (text.trimmed().isEmpty()) {
++    scheduleImageCleanup();
++}
 +ClipboardStore::~ClipboardStore() { stopWaylandWriters(); }
 +QString ClipboardStore::waylandCopyProgram() const { return "/usr/bin/wl-copy"; }
 +void ClipboardStore::stopWaylandWriters()
@@ -3597,6 +3646,8 @@
 +            { "pinned", item.value("pinned").toBool() },
 +            { "label", item.value("text").toString().left(100) } };
 +        if (item.value("kind") == "image") {
++            const auto path = QDir::cleanPath(QFileInfo(item.value("path").toString()).absoluteFilePath());
++            ++m_imageTransfers[path];
 +            m_continuity->request({ { "op", "stage_file" }, { "path", item.value("path") } },
 +                [this, guard, id, p](const QVariantMap& r) mutable {
 +                    if (!guard || !r.value("ok").toBool())
@@ -3609,6 +3660,12 @@
 +                        return;
 +                    p["blob"] = r.value("blob");
 +                    m_continuity->mutate("put", "clipboard", id, p);
++                }, 60000, [this, guard, path] {
++                    if (!guard)
++                        return;
++                    if (--m_imageTransfers[path] == 0)
++                        m_imageTransfers.remove(path);
++                    scheduleImageCleanup();
 +                });
 +        } else {
 +            p["text"] = item.value("text");
@@ -3673,61 +3730,6 @@
 +            m_items.removeAt(n);
      save();
      emit itemsChanged();
--}
--
--void ClipboardStore::activate(const QString &id)
--{
--    if (!m_clipboard) {
--        return;
--    }
--    for (const QVariant &value : std::as_const(m_items)) {
--        const QVariantMap item = value.toMap();
--        if (item.value(QStringLiteral("id")).toString() == id) {
--            m_clipboard->setText(item.value(QStringLiteral("text")).toString());
--            return;
--        }
--    }
--}
--
--void ClipboardStore::captureClipboard()
--{
--    if (!m_clipboard) {
--        return;
--    }
--    const QMimeData *mime = m_clipboard->mimeData();
--    if (!mime || !mime->hasText()
--        || mime->hasFormat(QStringLiteral("x-kde-passwordManagerHint"))
--        || mime->hasFormat(QStringLiteral("application/x-kde-onlyReplaceEmpty"))) {
--        return;
--    }
--    const QString text = mime->text();
--    if (text == m_lastObservedText) {
--        return;
--    }
--    m_lastObservedText = text;
--    recordText(text);
--}
--
--void ClipboardStore::captureKlipper()
--{
--    QDBusInterface klipper(
--        QStringLiteral("org.kde.klipper"),
--        QStringLiteral("/klipper"),
--        QStringLiteral("org.kde.klipper.klipper"),
--        QDBusConnection::sessionBus());
--    if (!klipper.isValid()) {
--        return;
--    }
--    const QDBusReply<QString> reply =
--        klipper.call(QStringLiteral("getClipboardContents"));
--    if (!reply.isValid() || reply.value().isEmpty()
--        || reply.value() == m_lastObservedText) {
--        return;
--    }
--    m_lastObservedText = reply.value();
--    recordText(reply.value());
--}
--
 +    if (m_continuity && m_knownShared.contains(id))
 +        m_continuity->mutate("delete", "clipboard", id);
 +}
@@ -3894,8 +3896,102 @@
 +            120000);
 +    }
 +}
- void ClipboardStore::load()
- {
++void ClipboardStore::load()
++{
++    QFile f(QDir(m_dataRoot).filePath("clipboard.json"));
++    m_historyReadable = !f.exists();
++    if (f.open(QIODevice::ReadOnly)) {
++        auto doc = QJsonDocument::fromJson(f.readAll());
++        m_historyReadable = f.error() == QFileDevice::NoError && doc.isArray();
++        if (m_historyReadable)
++            m_items = doc.array().toVariantList();
++    }
++    m_persistedImagePaths = imageReferences(m_items);
++    QFile known(QDir(m_dataRoot).filePath("clipboard-shared.json"));
++    if (known.open(QIODevice::ReadOnly))
++        for (const auto& v : QJsonDocument::fromJson(known.readAll()).array())
++            m_knownShared.insert(v.toString());
++}
++void ClipboardStore::save()
++{
++    QDir().mkpath(m_dataRoot);
++    QFile::setPermissions(
++        m_dataRoot, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
++    auto write = [this](const QString& name, const QJsonDocument& doc) {
++        QSaveFile f(QDir(m_dataRoot).filePath(name));
++        if (!f.open(QIODevice::WriteOnly))
++            return false;
++        f.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
++        const auto bytes = doc.toJson(QJsonDocument::Compact);
++        return f.write(bytes) == bytes.size() && f.commit();
++    };
++    if (write("clipboard.json", QJsonDocument::fromVariant(m_items))) {
++        const auto references = imageReferences(m_items);
++        const bool changed = !m_historyReadable || references != m_persistedImagePaths;
++        m_persistedImagePaths = references;
++        m_historyReadable = true;
++        if (changed)
++            scheduleImageCleanup();
++    }
++    write("clipboard-shared.json",
++        QJsonDocument::fromVariant(QStringList(m_knownShared.begin(), m_knownShared.end())));
+ }
+ 
+-void ClipboardStore::activate(const QString &id)
+-{
+-    if (!m_clipboard) {
+-        return;
+-    }
+-    for (const QVariant &value : std::as_const(m_items)) {
+-        const QVariantMap item = value.toMap();
+-        if (item.value(QStringLiteral("id")).toString() == id) {
+-            m_clipboard->setText(item.value(QStringLiteral("text")).toString());
+-            return;
+-        }
+-    }
+-}
+-
+-void ClipboardStore::captureClipboard()
+-{
+-    if (!m_clipboard) {
+-        return;
+-    }
+-    const QMimeData *mime = m_clipboard->mimeData();
+-    if (!mime || !mime->hasText()
+-        || mime->hasFormat(QStringLiteral("x-kde-passwordManagerHint"))
+-        || mime->hasFormat(QStringLiteral("application/x-kde-onlyReplaceEmpty"))) {
+-        return;
+-    }
+-    const QString text = mime->text();
+-    if (text == m_lastObservedText) {
+-        return;
+-    }
+-    m_lastObservedText = text;
+-    recordText(text);
+-}
+-
+-void ClipboardStore::captureKlipper()
+-{
+-    QDBusInterface klipper(
+-        QStringLiteral("org.kde.klipper"),
+-        QStringLiteral("/klipper"),
+-        QStringLiteral("org.kde.klipper.klipper"),
+-        QDBusConnection::sessionBus());
+-    if (!klipper.isValid()) {
+-        return;
+-    }
+-    const QDBusReply<QString> reply =
+-        klipper.call(QStringLiteral("getClipboardContents"));
+-    if (!reply.isValid() || reply.value().isEmpty()
+-        || reply.value() == m_lastObservedText) {
+-        return;
+-    }
+-    m_lastObservedText = reply.value();
+-    recordText(reply.value());
+-}
+-
+-void ClipboardStore::load()
+-{
 -    QFile file(QDir(m_dataRoot).filePath(QStringLiteral("clipboard.json")));
 -    if (!file.open(QIODevice::ReadOnly)) {
 -        return;
@@ -3906,20 +4002,9 @@
 -    }
 -}
 -
-+    QFile f(QDir(m_dataRoot).filePath("clipboard.json"));
-+    if (f.open(QIODevice::ReadOnly)) {
-+        auto doc = QJsonDocument::fromJson(f.readAll());
-+        if (doc.isArray())
-+            m_items = doc.array().toVariantList();
-+    }
-+    QFile known(QDir(m_dataRoot).filePath("clipboard-shared.json"));
-+    if (known.open(QIODevice::ReadOnly))
-+        for (const auto& v : QJsonDocument::fromJson(known.readAll()).array())
-+            m_knownShared.insert(v.toString());
-+}
- void ClipboardStore::save() const
- {
-     QDir().mkpath(m_dataRoot);
+-void ClipboardStore::save() const
+-{
+-    QDir().mkpath(m_dataRoot);
 -    QSaveFile file(QDir(m_dataRoot).filePath(QStringLiteral("clipboard.json")));
 -    if (!file.open(QIODevice::WriteOnly)) {
 -        return;
@@ -3927,32 +4012,87 @@
 -    file.write(QJsonDocument::fromVariant(m_items).toJson(QJsonDocument::Compact));
 -    file.commit();
 -}
-+    QFile::setPermissions(
-+        m_dataRoot, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
-+    auto write = [this](const QString& name, const QJsonDocument& doc) {
-+        QSaveFile f(QDir(m_dataRoot).filePath(name));
-+        if (f.open(QIODevice::WriteOnly)) {
-+            f.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
-+            f.write(doc.toJson(QJsonDocument::Compact));
-+            f.commit();
-+        }
-+    };
-+    write("clipboard.json", QJsonDocument::fromVariant(m_items));
-+    write("clipboard-shared.json",
-+        QJsonDocument::fromVariant(QStringList(m_knownShared.begin(), m_knownShared.end())));
++QSet<QString> ClipboardStore::imageReferences(const QVariantList& items) const
++{
++    QSet<QString> result;
++    for (const auto& value : items) {
++        const auto item = value.toMap();
++        if (item.value("kind") != "image")
++            continue;
++        const auto path = item.value("path").toString();
++        if (!path.isEmpty())
++            result.insert(QDir::cleanPath(QFileInfo(path).absoluteFilePath()));
++        // A shared row can reference the same owned bytes without carrying a local path.
++        result.insert(QDir(m_dataRoot).absoluteFilePath(
++            "clipboard-images/" + item.value("id").toString() + ".png"));
++    }
++    return result;
++}
++void ClipboardStore::scheduleImageCleanup()
++{
++    if (m_imageIterator)
++        m_imageCleanupAgain = true;
++    else if (!m_imageCleanupTimer->isActive())
++        m_imageCleanupTimer->start(250);
++}
++void ClipboardStore::cleanImageCacheSlice()
++{
++    const auto directory = QDir(m_dataRoot).absoluteFilePath("clipboard-images");
++    const QFileInfo rootInfo(m_dataRoot), directoryInfo(directory);
++    // Never follow a substituted cache directory or a symlink entry into somebody else's data.
++    if (!m_historyReadable || rootInfo.isSymLink() || directoryInfo.isSymLink()
++        || !directoryInfo.isDir()) {
++        m_imageIterator.reset();
++        m_imageCleanupAgain = false;
++        return;
++    }
++    if (!m_imageIterator)
++        m_imageIterator = std::make_unique<QDirIterator>(directory,
++            QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot);
++    auto referenced = imageReferences(m_items);
++    referenced.unite(m_persistedImagePaths);
++    static const QRegularExpression ownedName(
++        QRegularExpression::anchoredPattern(QStringLiteral("[0-9a-f]{64}\\.png")));
++    QElapsedTimer elapsed;
++    elapsed.start();
++    int visited = 0;
++    // Entry and time budgets avoid a large old cache monopolizing the event loop.
++    while (visited < 64 && elapsed.elapsed() < 4 && m_imageIterator->hasNext()) {
++        ++visited;
++        const auto path = m_imageIterator->next();
++        const QFileInfo file(path);
++        if (!ownedName.match(file.fileName()).hasMatch() || file.isSymLink() || !file.isFile()
++            || referenced.contains(path) || m_imageTransfers.contains(path))
++            continue;
++        if (QFileInfo(directory).isSymLink() || QFileInfo(m_dataRoot).isSymLink())
++            break;
++        QFile::remove(path);
++    }
++    if (m_imageIterator->hasNext()) {
++        m_imageCleanupTimer->start(25);
++        return;
++    }
++    m_imageIterator.reset();
++    if (m_imageCleanupAgain) {
++        m_imageCleanupAgain = false;
++        scheduleImageCleanup();
++    }
 +}
 --- a/src/local/ClipboardStore.h
 +++ b/src/local/ClipboardStore.h
-@@ -1,43 +1,64 @@
+@@ -1,43 +1,76 @@
  #pragma once
 -
++#include <QHash>
  #include <QObject>
 +#include <QPointer>
 +#include <QSet>
  #include <QVariantList>
 -
 +#include <functional>
++#include <memory>
  class QClipboard;
++class QDirIterator;
  class QTimer;
 -
 -class ClipboardStore : public QObject
@@ -4000,6 +4140,10 @@
  private:
 -    void captureClipboard();
 -    void captureKlipper();
++    friend class ClipboardStoreTest;
++    void scheduleImageCleanup();
++    void cleanImageCacheSlice();
++    QSet<QString> imageReferences(const QVariantList& items) const;
 +    void readWaylandOffer(std::function<void(bool, QByteArray)> done);
 +    void writeWayland(const QByteArray& bytes, const QString& mime, const QString& id,
 +        const QString& observed, quint64 generation, bool automatic, qint64 timestamp);
@@ -4014,13 +4158,19 @@
 +    void mergeShared(const QVariantMap& frame);
 +    void applyItem(const QVariantMap& item, bool automatic);
      void load();
-     void save() const;
+-    void save() const;
 -
++    void save();
      QString m_dataRoot;
      QVariantList m_items;
 -    QClipboard *m_clipboard = nullptr;
 -    QTimer *m_klipperTimer = nullptr;
 -    QString m_lastObservedText;
++    QSet<QString> m_persistedImagePaths;
++    QHash<QString, int> m_imageTransfers;
++    std::unique_ptr<QDirIterator> m_imageIterator;
++    QTimer* m_imageCleanupTimer = nullptr;
++    bool m_historyReadable = true, m_imageCleanupAgain = false;
 +    QClipboard* m_clipboard = nullptr;
 +    QTimer* m_clipboardTimer = nullptr;
 +    ContinuityProvider* m_continuity = nullptr;
@@ -4517,6 +4667,367 @@
 +  grabImage(page).save("/tmp/insight-continuity-media.png")
 + }
 +}
+--- a/tests/tst_clipboardstore.cpp
++++ b/tests/tst_clipboardstore.cpp
+@@ -1,14 +1,29 @@
+ #include "local/ClipboardStore.h"
+ 
++#include "continuity/ContinuityProvider.h"
++#include <QBuffer>
++#include <QDir>
++#include <QFile>
++#include <QImage>
++#include <QJsonDocument>
+ #include <QTemporaryDir>
+ #include <QtTest>
+ 
+ class ClipboardStoreTest : public QObject
+ {
+     Q_OBJECT
+ 
+ private slots:
++    void retiresImagesPreservingPinnedSharedAndExactBytes();
++    void countRetentionAndDuplicateIdentity();
++    void startupCleanupIgnoresUnknownExternalAndSymlinkFiles();
++    void failedSavePreservesDurableReferences();
++    void unreadableHistoryDefersCleanup();
++    void largeStartupCacheYieldsToEventLoop();
++    void sharedImageWithoutLocalPath();
++    void inflightImages_data();
++    void inflightImages();
+     void deduplicatesLatest();
+     void keepsPinnedBeyondFourteenDays();
+     void preservesClipboardWhitespace();
+ };
+@@ -55,7 +70,328 @@
+         store.items().first().toMap().value(QStringLiteral("text")).toString(),
+         QStringLiteral("  linha\n"));
+ }
+ 
++namespace {
++QByteArray pngBytes(QRgb color = qRgb(10, 20, 30))
++{
++    QImage image(2, 2, QImage::Format_RGB32);
++    image.fill(color);
++    QByteArray bytes;
++    QBuffer buffer(&bytes);
++    buffer.open(QIODevice::WriteOnly);
++    image.save(&buffer, "PNG");
++    return bytes;
++}
++bool writeBytes(const QString& path, const QByteArray& bytes)
++{
++    QFile file(path);
++    return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
++}
++QByteArray readBytes(const QString& path)
++{
++    QFile file(path);
++    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
++}
++QString cachePath(const QString& root, const QByteArray& bytes)
++{
++    return root + "/clipboard-images/" + ContinuityProvider::contentKey(bytes) + ".png";
++}
++}
++void ClipboardStoreTest::retiresImagesPreservingPinnedSharedAndExactBytes()
++{
++    QTemporaryDir root;
++    QVERIFY(root.isValid());
++    ClipboardStore store(root.path());
++    const auto first = pngBytes(), pinned = pngBytes(qRgb(50, 60, 70));
++    const auto shared = pngBytes(qRgb(80, 90, 100));
++    store.recordImage(first, 0);
++    const auto pin = store.recordImage(pinned, 0);
++    store.togglePin(pin);
++    const auto sharedId = store.recordImage(shared, 0);
++    ContinuityProvider provider(root.path() + "/absent-config");
++    store.setContinuity(&provider);
++    // A shared reference survives retention even without a local path in the remote payload.
++    emit provider.snapshotReceived({ { "topic", "clipboard" }, { "initial", true },
++        { "items", QVariantList { QVariantMap { { "id", sharedId },
++            { "payload", QVariantMap { { "kind", "image" }, { "capturedAt", 0 } } } } } } });
++    store.prune(15LL * 24 * 60 * 60 * 1000);
++    QTRY_VERIFY(!QFile::exists(cachePath(root.path(), first)));
++    QCOMPARE(readBytes(cachePath(root.path(), pinned)), pinned);
++    QCOMPARE(readBytes(cachePath(root.path(), shared)), shared);
++    store.clear();
++    QTRY_VERIFY(!QFile::exists(cachePath(root.path(), shared)));
++    QCOMPARE(readBytes(cachePath(root.path(), pinned)), pinned);
++    store.remove(pin);
++    QTRY_VERIFY(!QFile::exists(cachePath(root.path(), pinned)));
++}
++void ClipboardStoreTest::countRetentionAndDuplicateIdentity()
++{
++    QTemporaryDir root;
++    ClipboardStore store(root.path());
++    const auto bytes = pngBytes();
++    const auto id = store.recordImage(bytes, 1000);
++    store.recordImage(bytes, 2000);
++    QCOMPARE(store.items().size(), 1);
++    for (int n = 0; n < 99; ++n)
++        store.recordText(QString::number(n), 3000 + n);
++    QTest::qWait(400);
++    QCOMPARE(readBytes(cachePath(root.path(), bytes)), bytes);
++    store.recordText("evicts oldest unpinned", 4000);
++    QTRY_VERIFY(!QFile::exists(cachePath(root.path(), bytes)));
++    QVERIFY(!id.isEmpty());
++    QCOMPARE(store.items().size(), 100);
++}
++void ClipboardStoreTest::startupCleanupIgnoresUnknownExternalAndSymlinkFiles()
++{
++    QTemporaryDir root, external;
++    const auto dir = root.path() + "/clipboard-images";
++    QVERIFY(QDir().mkpath(dir));
++    const auto bytes = pngBytes();
++    const auto orphan = cachePath(root.path(), bytes);
++    QVERIFY(writeBytes(orphan, bytes));
++    QVERIFY(writeBytes(dir + "/notes.txt", "unknown"));
++    QVERIFY(writeBytes(dir + "/original.png", bytes));
++    const auto unknownSuffix = dir + "/" + QString(64, 'd') + ".png\n";
++    QVERIFY(writeBytes(unknownSuffix, bytes));
++    const auto outside = external.path() + "/original.png";
++    QVERIFY(writeBytes(outside, bytes));
++    const auto link = dir + "/" + QString(64, 'a') + ".png";
++    QVERIFY(QFile::link(outside, link));
++    const auto nested = dir + "/nested";
++    QVERIFY(QDir().mkpath(nested));
++    QVERIFY(writeBytes(nested + "/" + QString(64, 'b') + ".png", bytes));
++    ClipboardStore store(root.path());
++    QTRY_VERIFY(!QFile::exists(orphan));
++    QCOMPARE(readBytes(outside), bytes);
++    QVERIFY(QFileInfo(link).isSymLink());
++    QCOMPARE(readBytes(dir + "/original.png"), bytes);
++    QCOMPARE(readBytes(unknownSuffix), bytes);
++    QCOMPARE(readBytes(dir + "/notes.txt"), QByteArray("unknown"));
++    QVERIFY(QFile::exists(nested + "/" + QString(64, 'b') + ".png"));
++    // A symlink replacing the entire owned directory must also be ignored.
++    QTemporaryDir linkedRoot;
++    QVERIFY(writeBytes(external.path() + "/" + QString(64, 'c') + ".png", bytes));
++    QVERIFY(QFile::link(external.path(), linkedRoot.path() + "/clipboard-images"));
++    ClipboardStore linkedStore(linkedRoot.path());
++    QTest::qWait(400);
++    QCOMPARE(readBytes(external.path() + "/" + QString(64, 'c') + ".png"), bytes);
++}
++void ClipboardStoreTest::failedSavePreservesDurableReferences()
++{
++    QTemporaryDir root;
++    const auto bytes = pngBytes();
++    ClipboardStore store(root.path());
++    const auto id = store.recordImage(bytes);
++    const auto history = root.path() + "/clipboard.json";
++    const auto saved = readBytes(history);
++    QVERIFY(QFile::rename(history, history + ".saved"));
++    // A directory at the target forces QSaveFile commit/open failure even as a privileged user.
++    QVERIFY(QDir().mkdir(history));
++    store.remove(id);
++    QTest::qWait(400);
++    QVERIFY(store.items().isEmpty());
++    QCOMPARE(readBytes(cachePath(root.path(), bytes)), bytes);
++    QCOMPARE(readBytes(history + ".saved"), saved);
++    QVERIFY(QDir().rmdir(history));
++    QVERIFY(QFile::rename(history + ".saved", history));
++    store.recordText("successful metadata retry");
++    QTRY_VERIFY(!QFile::exists(cachePath(root.path(), bytes)));
++}
++void ClipboardStoreTest::unreadableHistoryDefersCleanup()
++{
++    QTemporaryDir root;
++    const auto bytes = pngBytes();
++    QVERIFY(QDir().mkpath(root.path() + "/clipboard-images"));
++    QVERIFY(writeBytes(cachePath(root.path(), bytes), bytes));
++    QVERIFY(writeBytes(root.path() + "/clipboard.json", "{incomplete"));
++    ClipboardStore store(root.path());
++    QTest::qWait(400);
++    QCOMPARE(readBytes(cachePath(root.path(), bytes)), bytes);
++    store.recordText("new durable history");
++    QTRY_VERIFY(!QFile::exists(cachePath(root.path(), bytes)));
++}
++void ClipboardStoreTest::largeStartupCacheYieldsToEventLoop()
++{
++    QTemporaryDir root;
++    const auto directory = root.path() + "/clipboard-images";
++    QVERIFY(QDir().mkpath(directory));
++    const auto bytes = pngBytes();
++    for (int n = 0; n < 320; ++n)
++        QVERIFY(writeBytes(directory + "/" + QString::number(n, 16).rightJustified(64, '0') + ".png", bytes));
++    ClipboardStore store(root.path());
++    bool partialProgressObserved = false;
++    QTimer heartbeat;
++    connect(&heartbeat, &QTimer::timeout, this, [&] {
++        const auto remaining = QDir(directory).entryList(QDir::Files).size();
++        partialProgressObserved |= remaining > 0 && remaining < 320;
++    });
++    heartbeat.start(10);
++    QTRY_VERIFY(QDir(directory).entryList(QDir::Files).isEmpty());
++    QVERIFY(partialProgressObserved);
++    // Ordinary text capture never restarts a completed image-cache walk.
++    store.recordText("one");
++    store.recordText("two");
++    QVERIFY(!store.m_imageCleanupTimer->isActive());
++}
++void ClipboardStoreTest::inflightImages_data()
++{
++    QTest::addColumn<QString>("outcome");
++    QTest::newRow("success") << "success";
++    QTest::newRow("failed-reply") << "failure";
++    QTest::newRow("transport-stop") << "stop";
++    QTest::newRow("overlapping-transfers") << "overlap";
++    QTest::newRow("queued-timeout-late-success") << "timeout-success";
++    QTest::newRow("queued-timeout-late-failure") << "timeout-failure";
++    QTest::newRow("queued-timeout-stop") << "timeout-stop";
++    QTest::newRow("queued-timeout-leader-exit") << "timeout-leader";
++}
++void ClipboardStoreTest::inflightImages()
++{
++    QFETCH(QString, outcome);
++    QTemporaryDir root;
++    QVERIFY(root.isValid());
++    const auto cfg = root.path() + "/config.json", fixture = root.path() + "/fixture.py";
++    QVERIFY(writeBytes(cfg, "{\"enabled\":true,\"peer\":\"fixture\"}"));
++    QVERIFY(writeBytes(fixture, R"PY(
++import hashlib, json, os, pathlib, signal, subprocess, sys, time
++from concurrent.futures import ThreadPoolExecutor
++root = pathlib.Path(sys.argv[sys.argv.index('--config') + 1]).parent
++signal.signal(signal.SIGTERM, signal.SIG_IGN)
++count = 0
++print(json.dumps({'event':'connection','state':'online'}), flush=True)
++def process(value, index):
++    reply = {'id': value['id'], 'ok': True}
++    if value['op'] == 'occupy':
++        (root / 'busy').write_text('ready')
++        while not (root / 'release-worker').exists(): time.sleep(.01)
++    if value['op'] == 'stage_file':
++        (root / ('started' + str(index))).write_text('ready')
++        gate = root / ('release' + str(index))
++        while not gate.exists(): time.sleep(.01)
++        data = pathlib.Path(value['path']).read_bytes()
++        (root / ('read' + str(index))).write_bytes(data)
++        reply['ok'] = gate.read_text() != 'failure'
++        reply['blob'] = {'sha256':hashlib.sha256(data).hexdigest(),'size':len(data),'name':'image.png'}
++    print(json.dumps(reply), flush=True)
++with ThreadPoolExecutor(max_workers=1) as executor:
++    for line in sys.stdin:
++        value = json.loads(line)
++        if value['op'] == 'crash':
++            child = subprocess.Popen([sys.executable, '-c',
++                'import signal,time,pathlib,sys; signal.signal(signal.SIGTERM,signal.SIG_IGN); pathlib.Path(sys.argv[1]).write_text("ready"); time.sleep(90)', str(root / 'child-ready')])
++            (root / 'child-pid').write_text(str(child.pid))
++            while not (root / 'child-ready').exists(): time.sleep(.01)
++            os._exit(3)
++        if value['op'] == 'stage_file':
++            count += 1
++            (root / ('queued' + str(count))).write_text('accepted')
++        executor.submit(process, value, count)
++)PY"));
++    ContinuityProvider provider(cfg, fixture);
++    provider.start();
++    QTRY_COMPARE(provider.state(), QString("online"));
++    ClipboardStore store(root.path() + "/history");
++    store.setContinuity(&provider);
++    const auto bytes = pngBytes();
++    const auto id = store.recordImage(bytes);
++    const bool timeout = outcome.startsWith("timeout-");
++    if (timeout) {
++        provider.request({ { "op", "occupy" } });
++        QTRY_VERIFY(QFile::exists(root.path() + "/busy"));
++    }
++    store.share(id);
++    QTRY_VERIFY(QFile::exists(root.path() + (timeout ? "/queued1" : "/started1")));
++    auto replies = std::make_shared<int>(0);
++    auto deadlineFailure = std::make_shared<bool>(false);
++    if (timeout) {
++        QVERIFY(!QFile::exists(root.path() + "/started1"));
++        QCOMPARE(provider.m_unsettled.size(), 1);
++        auto& pending = provider.m_pending[provider.m_unsettled.keys().first()];
++        const auto original = pending.callback;
++        pending.callback = [original, replies, deadlineFailure](const QVariantMap& reply) {
++            ++*replies;
++            *deadlineFailure = !reply.value("ok").toBool()
++                && reply.value("error").toString() == QString::fromUtf8("Tempo esgotado");
++            original(reply);
++        };
++        // Advance only this test request's clock; production deadlines/errors stay unchanged.
++        pending.deadline = 0;
++        QTRY_COMPARE(*replies, 1);
++        QVERIFY(*deadlineFailure);
++        QVERIFY(!QFile::exists(root.path() + "/started1"));
++    }
++    if (outcome == "overlap")
++        store.share(id);
++    store.remove(id);
++    QTest::qWait(450);
++    QCOMPARE(readBytes(cachePath(root.path() + "/history", bytes)), bytes);
++    if (outcome == "stop" || outcome == "timeout-stop") {
++        provider.stop();
++        QVERIFY(!store.m_imageTransfers.isEmpty());
++        QTest::qWait(125);
++        QCOMPARE(readBytes(cachePath(root.path() + "/history", bytes)), bytes);
++    } else if (outcome == "timeout-leader") {
++        provider.request({ { "op", "crash" } });
++        QTRY_VERIFY(QFile::exists(root.path() + "/child-ready"));
++        QTRY_COMPARE(provider.state(), QString("offline"));
++        // Leader exit is not descendant cancellation: protection remains during escalation.
++        QVERIFY(!store.m_imageTransfers.isEmpty());
++        provider.stop();
++    } else {
++        if (timeout) {
++            QVERIFY(writeBytes(root.path() + "/release-worker", "ready"));
++            QTRY_VERIFY(QFile::exists(root.path() + "/started1"));
++            QCOMPARE(readBytes(cachePath(root.path() + "/history", bytes)), bytes);
++        }
++        QVERIFY(writeBytes(root.path() + "/release1",
++            outcome.endsWith("failure") ? QByteArray("failure") : outcome.toUtf8()));
++        QTRY_VERIFY(QFile::exists(root.path() + "/read1"));
++        QCOMPARE(readBytes(root.path() + "/read1"), bytes);
++        if (outcome == "overlap") {
++            QTRY_VERIFY(QFile::exists(root.path() + "/started2"));
++            QTest::qWait(450);
++            QCOMPARE(readBytes(cachePath(root.path() + "/history", bytes)), bytes);
++            QVERIFY(writeBytes(root.path() + "/release2", "failure"));
++            QTRY_VERIFY(QFile::exists(root.path() + "/read2"));
++            QCOMPARE(readBytes(root.path() + "/read2"), bytes);
++        }
++    }
++    QTRY_VERIFY(!QFile::exists(cachePath(root.path() + "/history", bytes)));
++    QVERIFY(store.items().isEmpty());
++    QVERIFY(store.m_imageTransfers.isEmpty());
++    if (timeout) {
++        QCOMPARE(*replies, 1); // Late replies settle lifetime without replaying the UI callback.
++        QVERIFY(provider.m_unsettled.isEmpty());
++    }
++    if (outcome == "timeout-leader") {
++        const auto pid = readBytes(root.path() + "/child-pid").trimmed();
++        const auto stat = readBytes("/proc/" + QString::fromLatin1(pid) + "/stat");
++        QVERIFY(stat.isEmpty() || stat.mid(stat.lastIndexOf(')') + 2).startsWith('Z'));
++    }
++    provider.stop();
++}
++
++void ClipboardStoreTest::sharedImageWithoutLocalPath()
++{
++    QTemporaryDir root;
++    const auto bytes = pngBytes();
++    const auto id = ContinuityProvider::contentKey(bytes);
++    QVERIFY(QDir().mkpath(root.path() + "/clipboard-images"));
++    QVERIFY(writeBytes(cachePath(root.path(), bytes), bytes));
++    ClipboardStore store(root.path());
++    ContinuityProvider provider(root.path() + "/absent-config");
++    store.setContinuity(&provider);
++    emit provider.snapshotReceived({ { "topic", "clipboard" }, { "initial", true },
++        { "items", QVariantList { QVariantMap { { "id", id },
++            { "payload", QVariantMap { { "kind", "image" }, { "capturedAt", 0 } } } } } } });
++    QVERIFY(!store.items().first().toMap().contains("path"));
++    store.prune();
++    QTest::qWait(400);
++    QCOMPARE(readBytes(cachePath(root.path(), bytes)), bytes);
++    store.remove(id);
++    QTRY_VERIFY(!QFile::exists(cachePath(root.path(), bytes)));
++}
++
+ QTEST_GUILESS_MAIN(ClipboardStoreTest)
+ 
+ #include "tst_clipboardstore.moc"
 --- /dev/null
 +++ b/tests/tst_continuity.cpp
 @@ -0,0 +1,784 @@

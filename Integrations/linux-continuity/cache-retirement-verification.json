@@ -1,0 +1,131 @@
+{
+  "format": 1,
+  "component": "Native Linux clipboard image cache retirement",
+  "date": "2026-10-19",
+  "nativeSourceHead": "478495be315fa087888e43a855cd5e9121d224d8",
+  "builtBinarySHA256": "f918a62d7cff6d78118ade2ff836b6225398ac5a79afc72821534f8f0984a602",
+  "ownedSourceChanges": [
+    {
+      "path": "src/continuity/ContinuityProvider.cpp",
+      "before": "e7aee177f95d981a509661aa054ce0341af56dde19a0633d25c7ec24988a2fff",
+      "after": "ad83733030eeed41f2465d8f4839192c8f89745814081bc09c724919e7bdedec"
+    },
+    {
+      "path": "src/continuity/ContinuityProvider.h",
+      "before": "8d6eebbb1f255ed3501f424aebcb261f48021930b7b79e4d2d4dc9b0de0468c0",
+      "after": "d34c28f7541093b7021feea5cddd8a10e7dda8c2382f2ded73841c7f8e33e56b"
+    },
+    {
+      "path": "src/local/ClipboardStore.cpp",
+      "before": "0f93b64b93c1084a90b551f00d990a0404f84cd2c2af176b0456810fe43294ae",
+      "after": "3343058506df80527d5cffe150140993882d041f673aae1de8f00089a50040df"
+    },
+    {
+      "path": "src/local/ClipboardStore.h",
+      "before": "20f1c226b2a9503830d54d8ee56ef7e939e6aa10cdc1d0300d7a864abfbf152e",
+      "after": "25880f31f9543f0eaf9f6e3fa87863f756eadfdc820e0b2e2ae53ade5dfa25ed"
+    },
+    {
+      "path": "tests/tst_clipboardstore.cpp",
+      "before": "87d09e9bdca9a5f67a2e3ebed5f03fa1f2470943c197ee57492307743e839b23",
+      "after": "8d9d3d1c1b7bff538c604246ddf7736a96901bf9f78bc675ab0c21799931b77a"
+    }
+  ],
+  "protectedBaseline": {
+    "sourceFilesVerified": 115,
+    "nonownedFilesUnchanged": 110,
+    "gitHeadAndPorcelainUnchanged": true,
+    "beforeMirrorUnchanged": true
+  },
+  "packageVerification": {
+    "prerequisitesPreserved": 93,
+    "existingBeforeHashesPreserved": 33,
+    "packagedChanges": 34,
+    "allFinalSourceFilesVerified": 115,
+    "patchSHA256": "34441feb267ae8113cd0704beffb567eea24e34b8ac8cb1c493b09eee5c951b7",
+    "manifestSHA256": "5c5fa6fd2141aaab0941d946be951468f7f2b5b79f5ebbb1b35087f5ed4201e5",
+    "applyCheck": true,
+    "applyAndHashCheck": true
+  },
+  "build": {
+    "result": "passed",
+    "targets": [
+      "tst_clipboardstore",
+      "tst_continuity",
+      "insight-notch-linux"
+    ],
+    "qt": "6.11.2",
+    "existingQmlCacheGenerationDisabled": true,
+    "toolchainChanges": false,
+    "logSHA256": "10509d7d5dae5ae163ae64fc6ca7ea504ca1f01d20f0b5636173c12c3139fdbd",
+    "warnings": [
+      "Existing Ninja log recovery warning; build succeeded."
+    ]
+  },
+  "isolatedTests": {
+    "environment": [
+      "QT_QPA_PLATFORM=offscreen",
+      "XDG_SESSION_TYPE=offscreen",
+      "DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/continuity-test-bus"
+    ],
+    "ctestPassed": 2,
+    "ctestFailed": 0,
+    "continuity": {
+      "passed": 34,
+      "failed": 0,
+      "seconds": 24.9
+    },
+    "clipboardstore": {
+      "passed": 20,
+      "failed": 0,
+      "seconds": 14.38
+    },
+    "qtCountsIncludeSetupAndTeardown": true,
+    "summaryLogSHA256": "b7afde4daf03b0ca857be8bb2ecff809a3e742f7d087fcc74d8006ccb84e5d4d",
+    "detailLogSHA256": "a1fed2f097490cdf7fc358275316601960314373f2b54586aab944838194c18d"
+  },
+  "initialTimingFailure": {
+    "test": "ContinuityTest::actualCoordinatorSharedSurfaces",
+    "reason": "Existing temporary second-coordinator startup exceeded its 5000 ms check; Qt reported 5200 ms would suffice.",
+    "testChanged": false,
+    "failedCaseRetry": "passed in 1.302 seconds",
+    "unchangedFullSuiteRetry": "passed in 24.90 seconds",
+    "finalCandidateFullSuites": "passed",
+    "initialLogSHA256": "d4b226f8b0c76a96adb6c66c2859ca056bdec8f2849d82ed510fc26a5310e1c5",
+    "retryLogSHA256": "bfd4ac3b6048dd8601ef501f17a7a9052cc85bd6182bc0bf40b2a376f105aba4"
+  },
+  "coverage": [
+    "startup orphans and large-cache event-loop progress",
+    "remove and clear",
+    "existing age and count retention",
+    "pinned, shared and ordinary history references",
+    "original PNG bytes and duplicate identities",
+    "failed history persistence and subsequent successful retry",
+    "unreadable history",
+    "unknown filenames, nested content, external originals and symlink files/directories",
+    "delayed successful, failed, stopped and overlapping stage-file transfers",
+    "ordinary text writes do not schedule cache scans",
+    "unchanged privacy, writer ownership and generation fences",
+    "queued stage-file UI timeout retains the file until a late terminal success or failure",
+    "UI timeout notification remains single and does not replay on late settlement",
+    "explicit stop and leader exit preserve leases until confirmed owned-group cleanup",
+    "shared image with no local path retains its owned PNG by content identity"
+  ],
+  "liveDeploymentPerformed": false,
+  "reviewFix": {
+    "round": 1,
+    "baseCommit": "674795f6fa23d7c91e395381558482b6083465b5",
+    "fixed": [
+      "I1",
+      "M2"
+    ],
+    "deferred": [
+      "M1 expected warning consumption"
+    ],
+    "changedFilesVsReviewBase": 4,
+    "unchangedFilesVsReviewBase": 111,
+    "uiDeadlinePolicyUnchanged": true,
+    "settlement": "terminal response or confirmed transport cancellation; UI timeout alone does not settle",
+    "sourceDeltaSHA256": "eb0c7792b178ef2dc2f4dd1f9e3269ac82ceeb6436cffaf63e6d4543250c4a2a"
+  }
+}

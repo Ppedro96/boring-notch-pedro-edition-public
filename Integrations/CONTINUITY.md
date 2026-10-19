@@ -51,6 +51,8 @@ Certificados, identidades e autorizações de sessão permanecem privados. Recup
 
 Os clientes nativos compartilham texto UTF-8 exato, inclusive seus espaços, e os bytes originais de PNG. A identidade por hash é comum entre plataformas. Fixação altera somente o estado do item; remoção é comum. Imagens ainda não armazenadas podem ser recebidas explicitamente pelo histórico.
 
+No Linux, as cópias locais de imagens sem referência são removidas automaticamente, em pequenas etapas, ao iniciar e após a retirada do histórico. A limpeza preserva imagens ainda presentes no histórico, fixadas, compartilhadas ou em envio. Se a gravação do histórico falhar, as imagens exigidas pelo último estado salvo permanecem protegidas. A retenção existente continua igual; arquivos originais e outros caches são preservados.
+
 Conteúdo marcado como privado, oculto, transitório, gerado automaticamente ou associado a gerenciadores de senhas é excluído. Referências locais a arquivos não viram clipboard compartilhado. No Linux, a captura valida os formatos oferecidos antes de ler um tipo suportado; não recupera conteúdo privado por um histórico alternativo.
 
 A ativação automática exige uma captura remota nova, recente e mais nova que a captura local. Histórico inicial, cache, repetição de alterações, eco da própria origem e mudança de fixação não substituem o clipboard. Antes de aplicar uma imagem recebida com atraso, o cliente verifica novamente o estado local; no Wayland, também confere a oferta atual. A seleção manual de um item é uma ação explícita. Isso reduz substituições atrasadas, mas não equivale a uma garantia de privacidade de qualquer aplicativo que omita suas marcações.

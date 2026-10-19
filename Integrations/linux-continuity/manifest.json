@@ -4,7 +4,7 @@
   "license": "GPLv3; see repository LICENSE",
   "patch": {
     "file": "native-continuity.patch",
-    "sha256": "a2c88f809c5cd58035f66d35d47ab0e609db65072d73fe27c7b4771877c13a06"
+    "sha256": "34441feb267ae8113cd0704beffb567eea24e34b8ac8cb1c493b09eee5c951b7"
   },
   "prerequisite": {
     "gitHead": "478495be315fa087888e43a855cd5e9121d224d8",
@@ -206,14 +206,14 @@
     {
       "path": "src/continuity/ContinuityProvider.cpp",
       "before": null,
-      "after": "e7aee177f95d981a509661aa054ce0341af56dde19a0633d25c7ec24988a2fff",
-      "bytes": 24772
+      "after": "ad83733030eeed41f2465d8f4839192c8f89745814081bc09c724919e7bdedec",
+      "bytes": 25789
     },
     {
       "path": "src/continuity/ContinuityProvider.h",
       "before": null,
-      "after": "8d6eebbb1f255ed3501f424aebcb261f48021930b7b79e4d2d4dc9b0de0468c0",
-      "bytes": 4349
+      "after": "d34c28f7541093b7021feea5cddd8a10e7dda8c2382f2ded73841c7f8e33e56b",
+      "bytes": 4643
     },
     {
       "path": "src/desk/DeskProvider.cpp",
@@ -230,14 +230,14 @@
     {
       "path": "src/local/ClipboardStore.cpp",
       "before": "da85ba9809bafe26bfc9bd2176d9af2ad7997a6b4c18f81c58440684db903fd1",
-      "after": "0f93b64b93c1084a90b551f00d990a0404f84cd2c2af176b0456810fe43294ae",
-      "bytes": 26987
+      "after": "3343058506df80527d5cffe150140993882d041f673aae1de8f00089a50040df",
+      "bytes": 31085
     },
     {
       "path": "src/local/ClipboardStore.h",
       "before": "6505730605bd7000407b14f35d9eda672278ee3398a1a22bd244801c09bf7bc2",
-      "after": "20f1c226b2a9503830d54d8ee56ef7e939e6aa10cdc1d0300d7a864abfbf152e",
-      "bytes": 2628
+      "after": "25880f31f9543f0eaf9f6e3fa87863f756eadfdc820e0b2e2ae53ade5dfa25ed",
+      "bytes": 3089
     },
     {
       "path": "src/local/WaylandClipboardWriter.cpp",
@@ -286,6 +286,12 @@
       "before": null,
       "after": "d582ac2428ef25c0b77dc493285d459bccb79b852ad2427b8e5b63282a7e8601",
       "bytes": 5685
+    },
+    {
+      "path": "tests/tst_clipboardstore.cpp",
+      "before": "87d09e9bdca9a5f67a2e3ebed5f03fa1f2470943c197ee57492307743e839b23",
+      "after": "8d9d3d1c1b7bff538c604246ddf7736a96901bf9f78bc675ab0c21799931b77a",
+      "bytes": 16648
     },
     {
       "path": "tests/tst_continuity.cpp",
