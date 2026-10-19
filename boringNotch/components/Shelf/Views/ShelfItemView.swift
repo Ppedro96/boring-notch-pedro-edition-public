@@ -263,7 +263,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
             }
 
             // Store items being dragged for auto-remove feature
-            draggedItems = itemsToDrag
+            draggedItems = []
 
             // Create dragging items for AppKit
             var draggingItems: [NSDraggingItem] = []
@@ -283,6 +283,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
                     draggingItem.setDraggingFrame(imageFrame, contents: image)
 
                     draggingItems.append(draggingItem)
+                    draggedItems.append(dragItem)
                 }
             }
 
@@ -291,14 +292,13 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
             beginDraggingSession(with: draggingItems, event: event, source: self)
         }
         
-        private func createPasteboardItem(for item: ShelfItem) -> NSPasteboardItem? {
+        private func createPasteboardItem(for item: ShelfItem) -> (any NSPasteboardWriting)? {
             let pasteboardItem = NSPasteboardItem()
 
             switch item.kind {
             case .file:
                 guard let url = ShelfStateViewModel.shared.resolveAndUpdateBookmark(for: item) else {
-                    pasteboardItem.setString(item.displayName, forType: .string)
-                    return pasteboardItem
+                    return nil
                 }
                 
                 // Start accessing security-scoped resource and keep it active during drag
@@ -307,9 +307,7 @@ private struct DraggableClickHandler<Content: View>: NSViewRepresentable {
                     NSLog("🔐 Started security-scoped access for drag: \(url.path)")
                 }
                 
-                pasteboardItem.setString(url.absoluteString, forType: .fileURL)
-                pasteboardItem.setString(url.path, forType: .string)
-                return pasteboardItem
+                return ShelfFileDragWriter.make(url: url)
 
             case .text(let string):
                 pasteboardItem.setString(string, forType: .string)

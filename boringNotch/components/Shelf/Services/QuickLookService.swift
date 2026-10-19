@@ -80,7 +80,8 @@ final class QuickLookService: ObservableObject {
 
     func updateSelection(urls: [URL]) {
         guard isQuickLookOpen else { return }
-    show(urls: urls, selectFirst: true)
+        guard !urls.isEmpty else { hide(); return }
+        show(urls: urls, selectFirst: true)
     }
 }
 

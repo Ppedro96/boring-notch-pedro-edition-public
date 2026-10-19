@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C0DE20261019000000000002 /* ShelfFileDragWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE20261019000000000001; };
 		DFDF00102F100100000000002 /* PedroDeskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFDF00102F100100000000001; };
 		C0DF00002F100100000000002 /* PedroActivityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DF00002F100100000000001 /* PedroActivityModels.swift */; };
 		C0DF00002F100100000000004 /* PedroActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DF00002F100100000000003 /* PedroActivityManager.swift */; };
@@ -242,6 +243,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C0DE20261019000000000001 /* ShelfFileDragWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfFileDragWriter.swift; sourceTree = "<group>"; };
 		DFDF00102F100100000000001 /* PedroDeskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroDeskView.swift; sourceTree = "<group>"; };
 		C0DF00002F100100000000001 /* PedroActivityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroActivityModels.swift; sourceTree = "<group>"; };
 		C0DF00002F100100000000003 /* PedroActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroActivityManager.swift; sourceTree = "<group>"; };
@@ -497,6 +499,7 @@
 				110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */,
 				1113ABCF2E80E6BB00EC13B2 /* ThumbnailService.swift */,
 				1113ABBA2E80E27000EC13B2 /* QuickLookService.swift */,
+				C0DE20261019000000000001 /* ShelfFileDragWriter.swift */,
 				1113ABBC2E80E27000EC13B2 /* ShelfActionService.swift */,
 				1113ABBD2E80E27000EC13B2 /* ShelfDropService.swift */,
 				1113ABBE2E80E27000EC13B2 /* ShelfPersistenceService.swift */,
@@ -1176,6 +1179,7 @@
 				1113ABC82E80E27000EC13B2 /* ShelfItem.swift in Sources */,
 				1113ABCA2E80E27000EC13B2 /* ShelfSelectionModel.swift in Sources */,
 				1113ABCB2E80E27000EC13B2 /* QuickLookService.swift in Sources */,
+				C0DE20261019000000000002 /* ShelfFileDragWriter.swift in Sources */,
 				1113ABCC2E80E27000EC13B2 /* ShelfDropService.swift in Sources */,
 				1100292E2E86940F00035A57 /* QuickShareService.swift in Sources */,
 				1113ABCE2E80E27000EC13B2 /* ShelfActionService.swift in Sources */,

@@ -55,6 +55,7 @@ class MusicManager: ObservableObject {
     @Published var isFavoriteTrack: Bool = false
 
     private var artworkData: Data? = nil
+    private var artworkRevision = 0
 
     // Store last values at the time artwork was changed
     private var lastArtworkTitle: String = "I'm Handsome"
@@ -73,7 +74,7 @@ class MusicManager: ObservableObject {
         // Listen for changes to the default controller preference
         NotificationCenter.default.publisher(for: Notification.Name.mediaControllerChanged)
             .sink { [weak self] _ in
-                self?.setActiveControllerBasedOnPreference()
+                Task { @MainActor [weak self] in self?.setActiveControllerBasedOnPreference() }
             }
             .store(in: &cancellables)
 
@@ -108,6 +109,7 @@ class MusicManager: ObservableObject {
     }
 
     // MARK: - Setup Methods
+    @MainActor
     private func createController(for type: MediaControllerType) -> (any MediaControllerProtocol)? {
         // Cleanup previous controller
         if activeController != nil {
@@ -148,6 +150,7 @@ class MusicManager: ObservableObject {
         return newController
     }
 
+    @MainActor
     private func setActiveControllerBasedOnPreference() {
         let preferredType = Defaults[.mediaController]
         print("Preferred Media Controller: \(preferredType)")
@@ -165,6 +168,7 @@ class MusicManager: ObservableObject {
         }
     }
 
+    @MainActor
     private func setActiveController(_ controller: any MediaControllerProtocol) {
         // Cancel any existing flip animation
         flipWorkItem?.cancel()
@@ -201,7 +205,7 @@ class MusicManager: ObservableObject {
         let bundleChanged = state.bundleIdentifier != self.lastArtworkBundleIdentifier
 
         // Check for artwork changes
-        let artworkChanged = state.artwork != nil && state.artwork != self.artworkData
+        let artworkChanged = state.artwork != self.artworkData
         let hasContentChange = titleChanged || artistChanged || albumChanged || artworkChanged || bundleChanged
 
         // Handle artwork and visual transitions for changed content
@@ -212,28 +216,25 @@ class MusicManager: ObservableObject {
                 self.updateArtwork(artwork)
             } else if state.artwork == nil {
                 // Try to use app icon if no artwork but track changed
-                if let appIconImage = AppIconAsNSImage(for: state.bundleIdentifier) {
-                    self.usingAppIconForArtwork = true
-                    self.updateAlbumArt(newAlbumArt: appIconImage)
-                }
+                self.artworkRevision += 1
+                self.usingAppIconForArtwork = true
+                self.updateAlbumArt(newAlbumArt: AppIconAsNSImage(for: state.bundleIdentifier) ?? defaultImage)
             }
             self.artworkData = state.artwork
 
-            if artworkChanged || state.artwork == nil {
-                // Update last artwork change values
-                self.lastArtworkTitle = state.title
-                self.lastArtworkArtist = state.artist
-                self.lastArtworkAlbum = state.album
-                self.lastArtworkBundleIdentifier = state.bundleIdentifier
-            }
+            self.lastArtworkTitle = state.title
+            self.lastArtworkArtist = state.artist
+            self.lastArtworkAlbum = state.album
+            self.lastArtworkBundleIdentifier = state.bundleIdentifier
 
             // Only update sneak peek if there's actual content and something changed
             if !state.title.isEmpty && !state.artist.isEmpty && state.isPlaying {
                 self.updateSneakPeek()
             }
 
-            // Fetch lyrics on content change
-            self.fetchLyricsIfAvailable(bundleIdentifier: state.bundleIdentifier, title: state.title, artist: state.artist)
+            if titleChanged || artistChanged || bundleChanged {
+                self.fetchLyricsIfAvailable(bundleIdentifier: state.bundleIdentifier, title: state.title, artist: state.artist)
+            }
         }
 
         let timeChanged = state.currentTime != self.elapsedTime
@@ -514,14 +515,14 @@ class MusicManager: ObservableObject {
     }
 
     private func updateArtwork(_ artworkData: Data) {
+        artworkRevision += 1
+        let revision = artworkRevision
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-
-            if let artworkImage = NSImage(data: artworkData) {
-                DispatchQueue.main.async { [weak self] in
-                    self?.usingAppIconForArtwork = false
-                    self?.updateAlbumArt(newAlbumArt: artworkImage)
-                }
+            guard let artworkImage = NSImage(data: artworkData) else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.artworkRevision == revision else { return }
+                self.usingAppIconForArtwork = false
+                self.updateAlbumArt(newAlbumArt: artworkImage)
             }
         }
     }
@@ -532,9 +533,10 @@ class MusicManager: ObservableObject {
             debounceIdleTask?.cancel()
         } else {
             debounceIdleTask?.cancel()
-            debounceIdleTask = Task { [weak self] in
-                guard let self = self else { return }
-                try? await Task.sleep(for: .seconds(Defaults[.waitInterval]))
+            debounceIdleTask = Task { @MainActor [weak self] in
+                do { try await Task.sleep(for: .seconds(Defaults[.waitInterval])) }
+                catch { return }
+                guard !Task.isCancelled, let self else { return }
                 withAnimation {
                     self.isPlayerIdle = !self.isPlaying
                 }
@@ -542,10 +544,7 @@ class MusicManager: ObservableObject {
         }
     }
 
-    private var workItem: DispatchWorkItem?
-
     func updateAlbumArt(newAlbumArt: NSImage) {
-        workItem?.cancel()
         withAnimation(.smooth) {
             self.albumArt = newAlbumArt
             if Defaults[.coloredSpectrogram] {
@@ -564,12 +563,10 @@ class MusicManager: ObservableObject {
     }
 
     func calculateAverageColor() {
-        albumArt.averageColor { [weak self] color in
-            DispatchQueue.main.async {
-                withAnimation(.smooth) {
-                    self?.avgColor = color ?? .white
-                }
-            }
+        let image = albumArt
+        image.averageColor { [weak self] color in
+            guard let self, self.albumArt === image else { return }
+            withAnimation(.smooth) { self.avgColor = color ?? .white }
         }
     }
 
@@ -672,7 +669,7 @@ class MusicManager: ObservableObject {
 
     func forceUpdate() {
         // Request immediate update from the active controller
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             if self?.activeController?.isActive() == true {
                 if let youtubeController = self?.activeController as? YouTubeMusicController {
                     await youtubeController.pollPlaybackState()

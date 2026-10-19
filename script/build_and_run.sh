@@ -44,12 +44,12 @@ if ! ditto "$built" "$installed"; then
     previous="$backup/$(basename "$appPath")"
     [[ ! -d "$previous" ]] || ditto "$previous" "$appPath"
   done
-  if [[ -d "$installed" ]]; then open -n "$installed"; else open -n "$legacyInstalled"; fi
+  if [[ -d "$installed" ]]; then open "$installed"; else open "$legacyInstalled"; fi
   exit 1
 fi
 codesign --verify --deep --strict "$installed"
 /usr/bin/python3 script/repair_launch_services.py
-open -n "$installed"
+open "$installed"
 sleep 2
 pgrep -f '^/Applications/Insight Notch\.app/Contents/MacOS/boringNotch$' >/dev/null
 printf 'Installed; backup: %s\n' "$backup"

@@ -113,3 +113,21 @@ swiftc -parse-as-library \
   Tests/PedroDifferentialTests.swift \
   -lsqlite3 -o "$test_output/PedroDifferentialTests"
 "$test_output/PedroDifferentialTests"
+
+swiftc -parse-as-library \
+  boringNotch/models/PlaybackState.swift \
+  "boringNotch/MediaControllers/YouTube Music Controller/YouTubeMusicModels.swift" \
+  "boringNotch/MediaControllers/YouTube Music Controller/YouTubeMusicNetworking.swift" \
+  boringNotch/components/Shelf/Services/ShelfFileDragWriter.swift \
+  boringNotch/extensions/NSImage+Extensions.swift \
+  Tests/MediaReliabilityTests.swift \
+  -o "$test_output/MediaReliabilityTests"
+"$test_output/MediaReliabilityTests"
+
+swiftc -parse-as-library \
+  boringNotch/models/PlaybackState.swift \
+  boringNotch/MediaControllers/MediaControllerProtocol.swift \
+  "boringNotch/MediaControllers/YouTube Music Controller/"*.swift \
+  Tests/MediaSocketIntegrationTests.swift \
+  -o "$test_output/MediaSocketIntegrationTests"
+"$test_output/MediaSocketIntegrationTests"

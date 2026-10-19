@@ -40,7 +40,7 @@ class SpotifyController: MediaControllerProtocol {
     init() {
         setupPlaybackStateChangeObserver()
         Task {
-            if isActive() {
+            if await isActive() {
                 await updatePlaybackInfo()
             }
         }

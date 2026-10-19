@@ -36,7 +36,8 @@ final class PedroDockPreview: ObservableObject {
     private init() { AXUIElementSetMessagingTimeout(system, 0.1) }
 
     func start() {
-        UserDefaults.standard.register(defaults: [Self.enabledKey: true])
+        UserDefaults.standard.register(defaults: [Self.enabledKey: false])
+        guard UserDefaults.standard.bool(forKey: Self.enabledKey) else { stop(); return }
         guard timer == nil else { return }
         Logger(subsystem: "theboringteam.boringnotch", category: "PedroDockPreview").notice(
             "Dock previews started: Accessibility=\(AXIsProcessTrusted(), privacy: .public), ScreenRecording=\(CGPreflightScreenCaptureAccess(), privacy: .public)")

@@ -25,8 +25,9 @@ extension NSImage {
                 return
             }
             
-            let width = cgImage.width
-            let height = cgImage.height
+            let scale = min(1.0, 64.0 / Double(max(cgImage.width, cgImage.height)))
+            let width = max(1, Int(Double(cgImage.width) * scale))
+            let height = max(1, Int(Double(cgImage.height) * scale))
             let totalPixels = width * height
             
             guard let context = CGContext(data: nil,

@@ -17,7 +17,7 @@ struct DynamicNotchApp: App {
     @Default(.menubarIcon) var showMenuBarIcon
     @Environment(\.openWindow) var openWindow
     @ObservedObject private var liveActivityManager = PedroLiveActivityManager.shared
-    @AppStorage(PedroDockPreview.enabledKey) private var dockPreviewsEnabled = true
+    @AppStorage(PedroDockPreview.enabledKey) private var dockPreviewsEnabled = false
 
     init() {
         disableSoftwareUpdateChecks()
@@ -43,6 +43,10 @@ struct DynamicNotchApp: App {
             }
             Divider()
             Toggle("Previews de janelas no Dock", isOn: $dockPreviewsEnabled)
+                .onChange(of: dockPreviewsEnabled) { _, enabled in
+                    if enabled { PedroDockPreview.shared.start() }
+                    else { PedroDockPreview.shared.stop() }
+                }
             Button("Autorizar previews do Dock…") { PedroDockPreview.shared.requestPermissions() }
             Button("Mixer de áudio") {
                 coordinatorForMixer()

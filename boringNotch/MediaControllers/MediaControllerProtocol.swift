@@ -10,9 +10,9 @@ import AppKit
 import Combine
 
 protocol MediaControllerProtocol: ObservableObject {
-    var playbackStatePublisher: AnyPublisher<PlaybackState, Never> { get }
-    var supportsVolumeControl: Bool { get }
-    var supportsFavorite: Bool { get }
+    @MainActor var playbackStatePublisher: AnyPublisher<PlaybackState, Never> { get }
+    @MainActor var supportsVolumeControl: Bool { get }
+    @MainActor var supportsFavorite: Bool { get }
     
     func setFavorite(_ favorite: Bool) async
     func play() async
@@ -24,6 +24,6 @@ protocol MediaControllerProtocol: ObservableObject {
     func toggleShuffle() async
     func toggleRepeat() async
     func setVolume(_ level: Double) async
-    func isActive() -> Bool
+    @MainActor func isActive() -> Bool
     func updatePlaybackInfo() async
 }

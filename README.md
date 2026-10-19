@@ -8,15 +8,15 @@ Esta documentação explica os recursos, a arquitetura e as etapas de configura�
 
 | Área | O que oferece |
 | --- | --- |
-| Home e mídia | Reprodução do macOS, capas, controles, calendário e recursos herdados de HUD, espelho e carregamento. |
-| Shelf | Arrastar e soltar arquivos, compartilhamento e integração com AirDrop. |
+| Home e mídia | Reprodução do macOS, capas com proteção contra atualizações atrasadas, reconexão do player, controles, calendário e recursos herdados de HUD, espelho e carregamento. |
+| Shelf | Arrastar arquivos como anexos nativos, compartilhar textos e links, prévia rápida e integração com AirDrop. |
 | Clipboard | Histórico pesquisável, itens fixados e limpeza dos não fixados. Control+V abre o histórico e Command+V mantém a colagem normal. Conteúdo marcado como confidencial é ignorado. |
 | Links | Captura de links com título e observação opcionais, salva como Markdown em uma caixa de entrada do Obsidian. |
 | Atividade | Eventos locais de tarefas, transferências e aplicativos, com progresso e conclusão. A integração com Dot pode ser ocultada sem removê-la. |
 | Uso de IA | Janelas de Claude, Codex e Gemini, histórico e fontes locais adicionais de OpenCode quando disponíveis. Leituras antigas são identificadas. |
 | Avisos de limites | Alertas em 80% e 95%, com deduplicação e respeito à renovação. Dados antigos e comparações relativas não disparam avisos de cota. |
 | Mixer | Volume, mute e seleção de saída por aplicativo. |
-| Prévia de janelas | Prévia ao interagir com o Dock, com fallback para ícone quando a captura não está disponível. |
+| Prévia de janelas | Recurso opcional do Dock, desativado por padrão. Quando desativado, o monitoramento e o temporizador permanecem parados. |
 | Dispositivos móveis | Bateria, carregamento, localização por toque, compartilhamento e transferências pelo KDE Connect. |
 | Mensagens | Notificações encaminhadas para o sistema nativo do macOS e resposta pelo painel quando a origem oferece essa ação. |
 | Mídia remota | Seleção de player, faixa anterior, reprodução, pausa e próxima faixa nos players expostos pelo KDE Connect. |
@@ -107,6 +107,10 @@ A árvore configurável aceita um ajuste local do relay e dos nomes visíveis. N
 O encaminhamento nativo substitui somente o popup duplicado que está sendo gerenciado e tenta restaurar a configuração anterior ao parar. Respostas dependem da ação disponibilizada pela notificação original; nem toda mensagem oferece essa possibilidade.
 
 A mídia local continua usando a integração do macOS. O controle remoto depende dos players expostos pelo KDE Connect. O Mixer permite ajustar volume e saída por aplicativo sem exigir um cliente específico para cada serviço de streaming.
+
+O controlador dedicado de mídia retoma a conexão após interrupções e reabertura do player. Eventos de progresso reutilizam a capa atual; respostas atrasadas de faixas anteriores são descartadas. A análise de cor usa uma amostra pequena da imagem para reduzir processamento sem alterar o visual dos controles.
+
+A Shelf oferece arquivos ao aplicativo de destino como anexos nativos. Textos e links mantêm seus formatos próprios. Ao limpar a seleção, a prévia rápida também é fechada. A prévia de janelas do Dock pode ser habilitada pelo menu do aplicativo quando desejada.
 
 ## Configurar janelas Android e recuperação da depuração
 

@@ -21,47 +21,42 @@ actor YouTubeMusicAuthManager {
         accessToken
     }
     
+    private var revision = 0
+
     func authenticate() async throws -> String {
-        // Return existing token if valid
-        if let token = accessToken {
+        let stamp = revision
+        if let token = accessToken { return token }
+        if let task = authenticationTask {
+            let token = try await task.value
+            guard stamp == revision else { throw CancellationError() }
             return token
         }
-        
-        // Wait for ongoing authentication if in progress
-        if let task = authenticationTask {
-            return try await task.value
-        }
-        
-        // Start new authentication
+        let client = httpClient
         let task = Task<String, Error> {
-            do {
-                let token = try await httpClient.authenticate()
-                await setToken(token)
-                return token
-            } catch {
-                await clearAuthenticationTask()
-                throw error
-            }
+            let token = try await client.authenticate()
+            try Task.checkCancellation()
+            return token
         }
-        
         authenticationTask = task
-        return try await task.value
+        do {
+            let token = try await task.value
+            guard stamp == revision else { throw CancellationError() }
+            accessToken = token
+            authenticationTask = nil
+            return token
+        } catch {
+            if stamp == revision { authenticationTask = nil }
+            throw error
+        }
     }
-    
-    func invalidateToken() async {
+
+    func invalidateToken() {
+        revision += 1
         accessToken = nil
         authenticationTask?.cancel()
         authenticationTask = nil
     }
-    
-    private func setToken(_ token: String) async {
-        accessToken = token
-        authenticationTask = nil
-    }
-    
-    private func clearAuthenticationTask() async {
-        authenticationTask = nil
-    }
+
 }
 
 // MARK: - Authentication State
