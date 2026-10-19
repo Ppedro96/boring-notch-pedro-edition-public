@@ -152,6 +152,21 @@ def process(ident):
         update(state='cancelled' if isinstance(error,InterruptedError) else 'failed',detail=str(error)[-1000:])
 
 
+def deskflow_windows_launcher(binary, config, pidfile, launcher_log):
+    # pythonw has no console; CREATE_NO_WINDOW also prevents the console-mode
+    # Deskflow core from opening one. Waiting keeps the child owned by the task.
+    return ("import subprocess,sys,traceback\nfrom pathlib import Path\n"
+            + "with open(" + repr(str(launcher_log)) + ", 'a', encoding='utf-8') as log:\n"
+            + "    try:\n"
+            + "        child=subprocess.Popen(" + repr([str(binary),'client','-s',str(config)])
+            + ", cwd=" + repr(str(binary.parent))
+            + ", stdin=subprocess.DEVNULL, stdout=log, stderr=log, creationflags=subprocess.CREATE_NO_WINDOW)\n"
+            + "        Path(" + repr(str(pidfile)) + ").write_text(str(child.pid), encoding='ascii')\n"
+            + "        code=child.wait()\n"
+            + "    except Exception:\n        traceback.print_exc(file=log)\n        raise\n"
+            + "sys.exit(code)\n")
+
+
 def deskflow(request):
     action=request.get('action','status')
     home=Path.home(); config=BASE/'deskflow-client.ini'; logfile=BASE/'deskflow-client.log';pidfile=BASE/'deskflow-client.pid'
@@ -165,10 +180,29 @@ def deskflow(request):
         # A scheduled interactive task attaches to Pedro's existing desktop, unlike an SSH session.
         def literal(value):return "'"+str(value).replace("'","''")+"'"
         task='InsightNotchDeskflow'
-        if action=='stop':script="Stop-ScheduledTask -TaskName '"+task+"' -ErrorAction SilentlyContinue"
+        stop_client=("$owned=@(Get-CimInstance Win32_Process -Filter \"Name='deskflow-core.exe'\" | Where-Object { $_.ExecutablePath -eq "
+                     +literal(binary)+" -and $_.CommandLine -and $_.CommandLine.Contains("+literal(config)+") }); "
+                     +"Stop-ScheduledTask -TaskName '"+task+"' -ErrorAction SilentlyContinue; "
+                     +"foreach($process in $owned){$live=Get-CimInstance Win32_Process -Filter ('ProcessId='+$process.ProcessId); "
+                     +"if($live -and $live.CreationDate -eq $process.CreationDate -and $live.ExecutablePath -eq $process.ExecutablePath){"
+                     +"Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue; "
+                     +"Wait-Process -Id $process.ProcessId -Timeout 5 -ErrorAction SilentlyContinue}}; ")
+        if action=='stop':script=stop_client+"exit 0"
         elif action=='start':
-            args='client -s "'+str(config)+'"'
-            script="$a=New-ScheduledTaskAction -Execute "+literal(binary)+" -Argument "+literal(args)+"; $p=New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited; Register-ScheduledTask -TaskName '"+task+"' -Action $a -Principal $p -Force | Out-Null; Start-ScheduledTask -TaskName '"+task+"'"
+            pythonw=Path(sys.executable).with_name('pythonw.exe')
+            if not pythonw.is_file():raise RuntimeError('Python windowless executable is unavailable')
+            launcher=BASE/'deskflow-launch.pyw'
+            launcher.write_text(deskflow_windows_launcher(binary,config,pidfile,BASE/'deskflow-launch.log'),encoding='utf-8')
+            args=subprocess.list2cmdline(['-I',str(launcher)])
+            script=("$ErrorActionPreference='Stop'; "
+                    + "$old=Get-ScheduledTask -TaskName '"+task+"' -ErrorAction SilentlyContinue; "
+                    + "if($old -and $old.State -eq 'Running' -and $old.Actions[0].Execute -eq "+literal(pythonw)
+                    + " -and $old.Actions[0].Arguments -eq "+literal(args)+"){exit 0}; "+stop_client
+                    + "$a=New-ScheduledTaskAction -Execute "+literal(pythonw)+" -Argument "+literal(args)+" -WorkingDirectory "+literal(BASE)+"; "
+                    + "$p=New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited; "
+                    + "$s=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero); "
+                    + "Register-ScheduledTask -TaskName '"+task+"' -Action $a -Principal $p -Settings $s -Force | Out-Null; "
+                    + "Start-ScheduledTask -TaskName '"+task+"'")
         else:raise ValueError('Ação inválida')
         result=subprocess.run(['powershell','-NoProfile','-EncodedCommand',base64.b64encode(script.encode('utf-16le')).decode()],capture_output=True,text=True,timeout=20)
         if result.returncode:raise RuntimeError(result.stderr[-800:])

@@ -97,4 +97,33 @@ class DeskTests(unittest.TestCase):
             with patch.object(h.subprocess,'Popen',return_value=child):
                 with self.assertRaises(InterruptedError):h.scp('x99','/tmp/source','/home/user/.local/share/insight-notch/jobs/'+('a'*32)+'/input.mp4',upload=True,cancel=cancel)
                 child.terminate.assert_called_once()
+    def test_windows_deskflow_uses_no_console_and_preserves_literal_paths(self):
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as root:
+            base=Path(root); binary=base/"app with 'quotes'"/'deskflow-core.exe'
+            config=base/'config with spaces.ini';pidfile=base/'client.pid';logfile=base/'launch.log'
+            child=Mock(pid=4321);child.wait.return_value=0
+            launcher=w.deskflow_windows_launcher(binary,config,pidfile,logfile)
+            compile(launcher,'deskflow-launch.pyw','exec')
+            with patch.object(w.subprocess,'CREATE_NO_WINDOW',0x08000000,create=True),patch.object(w.subprocess,'Popen',return_value=child) as call:
+                with self.assertRaises(SystemExit) as stopped:exec(launcher,{'__name__':'__main__'})
+            self.assertEqual(stopped.exception.code,0)
+            self.assertEqual(call.call_args.args[0],[str(binary),'client','-s',str(config)])
+            self.assertEqual(call.call_args.kwargs['creationflags'],0x08000000)
+            self.assertFalse(call.call_args.kwargs.get('shell',False))
+            self.assertEqual(call.call_args.kwargs['stdin'],w.subprocess.DEVNULL)
+            self.assertEqual(call.call_args.kwargs['cwd'],str(binary.parent))
+            self.assertIs(call.call_args.kwargs['stdout'],call.call_args.kwargs['stderr'])
+            self.assertEqual(pidfile.read_text(),'4321')
+            child.wait.assert_called_once()
+
+    def test_windows_deskflow_task_gets_the_client_exit_code(self):
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as root:
+            base=Path(root);child=Mock(pid=4321);child.wait.return_value=7
+            launcher=w.deskflow_windows_launcher(base/'core.exe',base/'client.ini',base/'pid',base/'log')
+            with patch.object(w.subprocess,'CREATE_NO_WINDOW',0x08000000,create=True),patch.object(w.subprocess,'Popen',return_value=child):
+                with self.assertRaises(SystemExit) as stopped:exec(launcher,{'__name__':'__main__'})
+            self.assertEqual(stopped.exception.code,7)
+
 if __name__=='__main__':unittest.main()

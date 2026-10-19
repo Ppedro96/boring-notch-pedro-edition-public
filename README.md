@@ -155,6 +155,8 @@ O servidor escuta somente na interface local e os clientes chegam por túneis SS
 
 Control+Option+Home solicita o retorno ao computador macOS. Teclado, mouse e clipboard dependem de uma sessão gráfica disponível e das permissões concedidas.
 
+No Windows, o cliente usa uma tarefa na sessão gráfica do usuário com um iniciador sem console. Não é necessário manter uma janela de terminal aberta. O iniciador acompanha o processo para que pausar a sessão também encerre o cliente corretamente.
+
 ## Configurar os widgets de bateria
 
 ### Central independente
