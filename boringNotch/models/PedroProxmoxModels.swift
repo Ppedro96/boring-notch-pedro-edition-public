@@ -1,5 +1,29 @@
 import Foundation
 
+enum PedroProxmoxNode: String, CaseIterable, Identifiable {
+    case lab
+    case pveo2
+
+    var id: String { rawValue }
+    var title: String { self == .lab ? "LAB" : "PVE02" }
+
+    var target: PedroOpsSSHTarget {
+        switch self {
+        case .lab:
+            PedroOpsSSHTarget(
+                id: "proxmox", title: "Proxmox LAB",
+                hostAlias: PedroLocalConfiguration.sshHost("pedro_ssh_proxmox", fallback: "root@proxmox.example.invalid"), iconName: "server.rack"
+            )
+        case .pveo2:
+            PedroOpsSSHTarget(
+                id: "proxmox-pveo2", title: "Proxmox PVE02",
+                hostAlias: PedroLocalConfiguration.sshHost("pedro_ssh_pveo2", fallback: "root@192.0.2.50"), iconName: "server.rack",
+                identityFileName: UserDefaults.standard.string(forKey: "pedro_ssh_pveo2_identity") ?? "id_ed25519_secondary"
+            )
+        }
+    }
+}
+
 enum PedroProxmoxSection: String, CaseIterable, Identifiable {
     case host
     case containers
@@ -189,6 +213,42 @@ struct PedroProxmoxSnapshot: Equatable {
     static let empty = PedroProxmoxSnapshot(host: nil, guests: [], errorMessage: nil)
 }
 
+// Keep late SSH responses in their own node's cache when the user switches hosts.
+struct PedroProxmoxFleetState {
+    private struct Entry {
+        var snapshot: PedroProxmoxSnapshot
+        var lastUpdated: Date?
+    }
+
+    private(set) var selectedNode: PedroProxmoxNode
+    private var entries: [PedroProxmoxNode: Entry] = [:]
+    private var refreshing: Set<PedroProxmoxNode> = []
+
+    init(selectedNode: PedroProxmoxNode = .lab) {
+        self.selectedNode = selectedNode
+    }
+
+    var snapshot: PedroProxmoxSnapshot { entries[selectedNode]?.snapshot ?? .empty }
+    var lastUpdated: Date? { entries[selectedNode]?.lastUpdated }
+    var isLoading: Bool { refreshing.contains(selectedNode) }
+
+    mutating func select(_ node: PedroProxmoxNode) {
+        selectedNode = node
+    }
+
+    mutating func beginRefresh(for node: PedroProxmoxNode) -> Bool {
+        refreshing.insert(node).inserted
+    }
+
+    mutating func finishRefresh(for node: PedroProxmoxNode, snapshot: PedroProxmoxSnapshot, at date: Date) {
+        entries[node] = Entry(
+            snapshot: snapshot,
+            lastUpdated: snapshot.errorMessage == nil ? date : entries[node]?.lastUpdated
+        )
+        refreshing.remove(node)
+    }
+}
+
 enum PedroProxmoxSnapshotParser {
     private struct RawCPUInfo: Decodable {
         let cores: Int?
@@ -218,6 +278,7 @@ enum PedroProxmoxSnapshotParser {
         let maxmem: Double?
         let mem: Double?
         let name: String?
+        let node: String?
         let status: String?
         let type: String?
         let uptime: Double?
@@ -240,15 +301,19 @@ enum PedroProxmoxSnapshotParser {
                 return PedroProxmoxSnapshot(host: nil, guests: [], errorMessage: "Telemetria do host incompleta")
             }
             let thermals = keyValues(in: section(in: output, after: "__THERMALS__", before: nil) ?? "")
+            let nodeName = thermals["node_name"].flatMap { $0.isEmpty ? nil : $0 } ?? hostName
+            guard nodeName == hostName else {
+                return PedroProxmoxSnapshot(host: nil, guests: [], errorMessage: "Nó Proxmox inesperado: \(nodeName)")
+            }
             let memoryUsed = rawHost.memory?.used ?? 0
             let memoryTotal = rawHost.memory?.total ?? 0
             let storageUsed = rawHost.rootfs?.used ?? 0
             let storageTotal = rawHost.rootfs?.total ?? 0
 
             let host = PedroProxmoxHost(
-                name: hostName,
+                name: nodeName,
                 version: displayVersion(rawHost.pveversion),
-                cpuModel: rawHost.cpuinfo?.model ?? "Xeon",
+                cpuModel: rawHost.cpuinfo?.model ?? "CPU",
                 cpuCores: rawHost.cpuinfo?.cores ?? 0,
                 cpuThreads: rawHost.cpuinfo?.cpus ?? 0,
                 cpuUsagePercent: thermals["cpu_percent"].flatMap(Int.init).map { min(100, max(0, $0)) } ?? percent(rawHost.cpu ?? 0),
@@ -262,13 +327,13 @@ enum PedroProxmoxSnapshotParser {
                 gpuName: thermals["gpu_name"].flatMap { $0.isEmpty ? nil : $0 },
                 gpuMemoryGB: thermals["gpu_memory_gb"].flatMap(Int.init),
                 gpuTemperature: thermals["gpu_temp"].flatMap(Int.init),
-                gpuDriver: thermals["gpu_driver"],
+                gpuDriver: thermals["gpu_driver"].flatMap { $0.isEmpty ? nil : $0 },
                 gpuGuest: thermals["gpu_guest"].flatMap { $0.isEmpty ? nil : $0 },
                 uptime: rawHost.uptime ?? 0,
                 loadAverage: rawHost.loadavg?.prefix(3).joined(separator: " ") ?? "--"
             )
 
-            let guests = rawGuests.map { raw in
+            let guests = rawGuests.filter { $0.node == nil || $0.node == nodeName }.map { raw in
                 let memoryUsed = raw.mem ?? 0
                 let memoryTotal = raw.maxmem ?? 0
                 let storageUsed = raw.disk ?? 0

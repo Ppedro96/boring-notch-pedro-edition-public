@@ -1,0 +1,431 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0FA622832A57BD02427C9206 /* BatteriesWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA187B25A041B485BFDB4ECA /* BatteriesWidget.swift */; };
+		6D1C41AB0EC74A71729DF8EA /* BatteryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A27767D3D02A5FCBFF7D6280 /* BatteryViews.swift */; };
+		9231B5E9D96EFBECE2CDCCF5 /* GalaxyBatteriesWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D8F2236ACA12F6BC7C0194B8 /* GalaxyBatteriesWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C8AB76B2ECE89CC5F7D79BEA /* BatteryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A27767D3D02A5FCBFF7D6280 /* BatteryViews.swift */; };
+		D1832155BE8BF84F4BC4AD36 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF8788F69D81EA5A47DC4473 /* main.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		6D448C68DB3AC836F56EBACC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A9D1E168863B3F9035D6D0DA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3F2025CFA5005B469B957197;
+			remoteInfo = GalaxyBatteriesWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2869EA6895F24399C8FE64D6 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				9231B5E9D96EFBECE2CDCCF5 /* GalaxyBatteriesWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		64B2BBC401D56700E2F18E8E /* InsightBatteries.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = InsightBatteries.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A27767D3D02A5FCBFF7D6280 /* BatteryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryViews.swift; sourceTree = "<group>"; };
+		BF8788F69D81EA5A47DC4473 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		D8D4F2E62E213FF21A621C85 /* Widget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Widget.entitlements; sourceTree = "<group>"; };
+		D8F2236ACA12F6BC7C0194B8 /* GalaxyBatteriesWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GalaxyBatteriesWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F3B57504E7A16DD2197E8FB9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		FA187B25A041B485BFDB4ECA /* BatteriesWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteriesWidget.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		38E054C59311BA7EDBFCD768 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D8F2236ACA12F6BC7C0194B8 /* GalaxyBatteriesWidget.appex */,
+				64B2BBC401D56700E2F18E8E /* InsightBatteries.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		50B3AF0F0806B1A99283A6E2 = {
+			isa = PBXGroup;
+			children = (
+				EF24EA2B7B0B729F4C24FA83 /* Extension */,
+				5AC0A874136F1528FD7E3830 /* Host */,
+				CE0267F265467715A517E653 /* Shared */,
+				38E054C59311BA7EDBFCD768 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5AC0A874136F1528FD7E3830 /* Host */ = {
+			isa = PBXGroup;
+			children = (
+				BF8788F69D81EA5A47DC4473 /* main.swift */,
+			);
+			path = Host;
+			sourceTree = "<group>";
+		};
+		CE0267F265467715A517E653 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A27767D3D02A5FCBFF7D6280 /* BatteryViews.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		EF24EA2B7B0B729F4C24FA83 /* Extension */ = {
+			isa = PBXGroup;
+			children = (
+				FA187B25A041B485BFDB4ECA /* BatteriesWidget.swift */,
+				F3B57504E7A16DD2197E8FB9 /* Info.plist */,
+				D8D4F2E62E213FF21A621C85 /* Widget.entitlements */,
+			);
+			path = Extension;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3F2025CFA5005B469B957197 /* GalaxyBatteriesWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6F4C20D4835AA472B9350288 /* Build configuration list for PBXNativeTarget "GalaxyBatteriesWidget" */;
+			buildPhases = (
+				325AA6D1000561AFE2140F44 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GalaxyBatteriesWidget;
+			packageProductDependencies = (
+			);
+			productName = GalaxyBatteriesWidget;
+			productReference = D8F2236ACA12F6BC7C0194B8 /* GalaxyBatteriesWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		F2AACA6B2B54B74CC714D056 /* InsightBatteries */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CD4686D96ABDB2BA41A69C77 /* Build configuration list for PBXNativeTarget "InsightBatteries" */;
+			buildPhases = (
+				D1C1F00A474B3E4AF45213F9 /* Sources */,
+				2869EA6895F24399C8FE64D6 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5EC991EF621CCA55529A8C64 /* PBXTargetDependency */,
+			);
+			name = InsightBatteries;
+			packageProductDependencies = (
+			);
+			productName = InsightBatteries;
+			productReference = 64B2BBC401D56700E2F18E8E /* InsightBatteries.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A9D1E168863B3F9035D6D0DA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 104A808CB7375998BB55318D /* Build configuration list for PBXProject "InsightBatteries" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 50B3AF0F0806B1A99283A6E2;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 38E054C59311BA7EDBFCD768 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F2AACA6B2B54B74CC714D056 /* InsightBatteries */,
+				3F2025CFA5005B469B957197 /* GalaxyBatteriesWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		325AA6D1000561AFE2140F44 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0FA622832A57BD02427C9206 /* BatteriesWidget.swift in Sources */,
+				6D1C41AB0EC74A71729DF8EA /* BatteryViews.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1C1F00A474B3E4AF45213F9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C8AB76B2ECE89CC5F7D79BEA /* BatteryViews.swift in Sources */,
+				D1832155BE8BF84F4BC4AD36 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5EC991EF621CCA55529A8C64 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3F2025CFA5005B469B957197 /* GalaxyBatteriesWidget */;
+			targetProxy = 6D448C68DB3AC836F56EBACC /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0E84CACCFC0D73ED704154DC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 4;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		191B395B6E557C32D0530741 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Extension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = marketing.insight360.batteries.widget;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		588A13A14CE5ADB147C2239E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Insight Batteries";
+				INFOPLIST_KEY_CFBundleURLTypes = (
+				);
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = marketing.insight360.batteries;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		7DA077A9D71145932EDE4AF5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Extension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = marketing.insight360.batteries.widget;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		8821E4F76F901EA7843D1962 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Insight Batteries";
+				INFOPLIST_KEY_CFBundleURLTypes = (
+				);
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = marketing.insight360.batteries;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		FFC0AEE63E7AB122D1A248D2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 4;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		104A808CB7375998BB55318D /* Build configuration list for PBXProject "InsightBatteries" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FFC0AEE63E7AB122D1A248D2 /* Debug */,
+				0E84CACCFC0D73ED704154DC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6F4C20D4835AA472B9350288 /* Build configuration list for PBXNativeTarget "GalaxyBatteriesWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7DA077A9D71145932EDE4AF5 /* Debug */,
+				191B395B6E557C32D0530741 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CD4686D96ABDB2BA41A69C77 /* Build configuration list for PBXNativeTarget "InsightBatteries" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8821E4F76F901EA7843D1962 /* Debug */,
+				588A13A14CE5ADB147C2239E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A9D1E168863B3F9035D6D0DA /* Project object */;
+}

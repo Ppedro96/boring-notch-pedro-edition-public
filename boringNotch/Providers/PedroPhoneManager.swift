@@ -4,11 +4,35 @@ import Combine
 @MainActor
 final class PedroPhoneManager: ObservableObject {
     static let shared = PedroPhoneManager()
-    @Published private(set) var phones: [PedroPhone] = []
+    @Published private(set) var phones: [PedroPhone] = [] {
+        didSet { exportWidgetBatteries() }
+    }
+    private func exportWidgetBatteries() {
+        let kinds = ["demo_s25": "s25", "demo_fold": "fold",
+                     "demo_tablet": "tablet", "demo_s23": "s23"]
+        let values: [[String: Any]] = phones.compactMap { phone in
+            let id = phone.id.replacingOccurrences(of: "x99:", with: "")
+            guard let kind = kinds[id] else { return nil }
+            return ["id": id, "name": phone.tabName, "kind": kind,
+                    "charge": phone.charge.map { $0 as Any } ?? NSNull(), "charging": phone.charging,
+                    "connected": phone.isConnected, "updatedAt": Date().timeIntervalSince1970]
+        }
+        let folder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/pedro-notch")
+        if let data = try? JSONSerialization.data(withJSONObject: ["devices": values]) {
+            try? data.write(to: folder.appendingPathComponent("battery-source.json"), options: .atomic)
+        }
+    }
     @Published private(set) var isRefreshing = false
     @Published private(set) var isActing = false
     @Published private(set) var error: String?
-    @Published private(set) var feedback: String?
+    private let feedbackState = PedroPhoneFeedback()
+    private var feedbackCancellable: AnyCancellable?
+    var feedback: String? { feedbackState.message }
+
+    init() {
+        feedbackCancellable = feedbackState.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
+    }
+    func dismissFeedback() { feedbackState.dismiss() }
     @Published private(set) var updatedAt: Date?
     @Published private(set) var transfers: [PedroPhoneTransfer] = []
     @Published var pendingFiles: [URL] = []
@@ -16,35 +40,110 @@ final class PedroPhoneManager: ObservableObject {
     private var activeTransfer: String?
     private var transferProcess: PedroPhoneTransferProcess?
     private var viewers = 0
-    private var timer: Timer?
+    private var observer: PedroPhoneObserver?
+    private var observerGeneration = UUID()
+    private var reconnectTask: Task<Void, Never>?
+    @Published private(set) var nativeNotificationsEnabled = false
     private var dismissed: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "pedroPhoneDismissedV1") ?? [])
     private var hiddenApps: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "pedroPhoneHiddenAppsV1") ?? [])
 
-    func appear() {
-        viewers += 1
-        refresh()
-        guard timer == nil else { return }
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+    func startMonitoring() {
+        guard observer == nil else { return }
+        reconnectTask?.cancel()
+        let generation = UUID()
+        observerGeneration = generation
+        let observer = PedroPhoneObserver()
+        self.observer = observer
+        observer.start { [weak self] data in
+            Task { @MainActor in
+                guard let self, self.observerGeneration == generation else { return }
+                self.accept(data)
+            }
+        } ended: { [weak self] in
+            Task { @MainActor in
+                guard let self, self.observerGeneration == generation else { return }
+                self.observer = nil
+                self.isRefreshing = false
+                self.error = "Reconectando ao KDE Connect"
+                self.phones = self.phones.map { $0.disconnected }
+                self.reconnectTask = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(3))
+                    guard !Task.isCancelled else { return }
+                    self?.startMonitoring()
+                }
+            }
+        }
+        if nativeNotificationsEnabled { observer.setNativeNotifications(true) }
+    }
+    func stopMonitoring() {
+        observerGeneration = UUID()
+        reconnectTask?.cancel()
+        observer?.stop(); observer = nil
+    }
+    func setNativeNotifications(_ enabled: Bool) {
+        nativeNotificationsEnabled = enabled
+        observer?.setNativeNotifications(enabled)
+    }
+    func appear() { viewers += 1; startMonitoring() }
+    func disappear() { viewers = max(0, viewers - 1) }
+    func refresh() {
+        startMonitoring()
+        observer?.refresh()
+    }
+    private func accept(_ data: Data) {
+        guard let value = try? JSONDecoder().decode(PedroPhoneSnapshot.self, from: data), let devices = value.devices else { return }
+        phones = devices.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        error = value.error; updatedAt = Date(); isRefreshing = false
+        PedroPhoneNativeNotifications.shared.consume(phones, hiddenApps: hiddenApps)
+    }
+    func reply(_ notification: PedroPhoneNotification, phone: PedroPhone, text: String,
+               completion: @escaping (Bool) -> Void) {
+        guard phone.isConnected, notification.canReply, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              text.utf8.count <= 4096 else { completion(false); return }
+        let request: [String: String] = ["command": "reply", "id": phone.id, "notification": notification.id,
+            "replyID": notification.replyID ?? "", "text": text]
+        perform(request, success: "Resposta enviada ao KDE; entrega nao confirmada", completion: completion)
+    }
+    func openScreen(_ phone: PedroPhone) {
+        guard !isActing else { return }
+        isActing = true
+        let ident = phone.id
+        Task {
+            let result: [String: String] = await Task.detached(priority: .utility) {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+                let helper = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/pedro-notch/scrcpy-phone.py")
+                process.arguments = [helper.path, "open", ident]
+                let output = Pipe()
+                process.standardOutput = output
+                process.standardError = FileHandle.nullDevice
+                do {
+                    try process.run()
+                    let data = output.fileHandleForReading.readDataToEndOfFile()
+                    process.waitUntilExit()
+                    let value = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                    return ["message": value?["ok"] as? Bool == true ? "Abrindo tela pelo scrcpy" : value?["error"] as? String ?? "Não foi possível abrir o scrcpy"]
+                } catch { return ["message": "scrcpy indisponível: " + error.localizedDescription] }
+            }.value
+            feedbackState.show(result["message"] ?? "scrcpy indisponível")
+            isActing = false
         }
     }
-    func disappear() {
-        viewers = max(0, viewers - 1)
-        if viewers == 0 { timer?.invalidate(); timer = nil }
+
+    func mediaAction(_ action: String, phone: PedroPhone, player: String? = nil) {
+        guard phone.isConnected, let media = phone.media, media.isAvailable else { return }
+        perform(["command": "media", "id": phone.id, "action": action, "player": player ?? media.player],
+                success: "Controle enviado ao aparelho") { _ in }
     }
-    func refresh() {
-        guard !isRefreshing else { return }
-        isRefreshing = true
+    private func perform(_ request: [String: String], success: String, completion: @escaping (Bool) -> Void) {
+        guard !isActing, let input = try? JSONSerialization.data(withJSONObject: request) else { completion(false); return }
+        isActing = true
         Task {
-            let data = await Task.detached(priority: .utility) { PedroPhoneBridge.run(["snapshot"]) }.value
-            if let value = try? JSONDecoder().decode(PedroPhoneSnapshot.self, from: data), let devices = value.devices {
-                phones = devices.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-                error = value.error; updatedAt = Date()
-            } else {
-                error = (try? JSONDecoder().decode(PedroPhoneSnapshot.self, from: data))?.error ?? "KDE Connect indisponivel"
-                phones = []
-            }
-            isRefreshing = false
+            let data = await Task.detached(priority: .utility) { PedroPhoneBridge.run(["action"], input: input) }.value
+            let result = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            let ok = result?["ok"] as? Bool == true
+            feedbackState.show(ok ? success : result?["error"] as? String ?? "Acao nao confirmada")
+            isActing = false; completion(ok); refresh()
         }
     }
     func notifications(for phone: PedroPhone) -> [PedroPhoneNotification] {
@@ -93,15 +192,15 @@ final class PedroPhoneManager: ObservableObject {
     }
     func sendFiles(_ urls: [URL], to phone: PedroPhone) {
         guard phone.isConnected, phone.canShare, phone.canShareFiles else {
-            feedback = "Aparelho sem conexao para envio"; return
+            feedbackState.show("Aparelho sem conexao para envio"); return
         }
         showsTransfers = true
         for url in urls {
             guard url.isFileURL, let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
                   values.isRegularFile == true, values.isSymbolicLink != true else {
-                feedback = "Selecione arquivos, nao pastas ou atalhos"; continue
+                feedbackState.show("Selecione arquivos, nao pastas ou atalhos"); continue
             }
-            guard transfers.filter({ !$0.update.isFinished }).count < 50 else { feedback = "Fila limitada a 50 arquivos"; break }
+            guard transfers.filter({ !$0.update.isFinished }).count < 50 else { feedbackState.show("Fila limitada a 50 arquivos"); break }
             let job = PedroPhoneTransfer(id: UUID().uuidString, source: url, deviceID: phone.id, deviceName: phone.tabName)
             transfers.append(job)
             recordTransfer(job)
@@ -158,7 +257,7 @@ final class PedroPhoneManager: ObservableObject {
         guard let text = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),
               let url = URL(string: text), ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
               url.host != nil, url.user == nil, url.password == nil else {
-            feedback = "A area de transferencia nao contem um link HTTP(S)"; return
+            feedbackState.show("A area de transferencia nao contem um link HTTP(S)"); return
         }
         let alert = NSAlert()
         alert.messageText = "Enviar link para " + phone.name + "?"
@@ -175,7 +274,7 @@ final class PedroPhoneManager: ObservableObject {
         Task {
             let data = await Task.detached(priority: .utility) { PedroPhoneBridge.run(arguments) }.value
             let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-            feedback = object?["ok"] as? Bool == true ? message : object?["error"] as? String ?? "Acao nao confirmada"
+            feedbackState.show(object?["ok"] as? Bool == true ? message : object?["error"] as? String ?? "Acao nao confirmada")
             isActing = false
             refresh()
         }

@@ -48,6 +48,12 @@ final class PedroLiveActivityManager: ObservableObject {
             }
             .store(in: &cancellables)
 
+        PedroOpsNetworkProvider.shared.$usageLimitAlerts
+            .dropFirst()
+            .sink { [weak self] alerts in self?.showUsageLimits(alerts) }
+            .store(in: &cancellables)
+        PedroOpsNetworkProvider.shared.startUsageMonitoring()
+
         restoreFocus()
         PedroActivityManager.shared.$events
             .sink { [weak self] events in self?.refreshExternalActivities(events) }
@@ -64,9 +70,24 @@ final class PedroLiveActivityManager: ObservableObject {
     }
 
     func stop() {
+        PedroOpsNetworkProvider.shared.stopUsageMonitoring()
         timer?.invalidate()
         timer = nil
         cancellables.removeAll()
+    }
+
+    private func showUsageLimits(_ alerts: [InsightUsageLimitAlert]) {
+        let now = Date()
+        for alert in alerts {
+            queue.upsert(PedroLiveActivity(id: "usage." + alert.id,
+                stateKey: alert.period + "." + String(alert.level.rawValue), kind: .usageLimit,
+                title: alert.providerTitle + " · cota",
+                detail: "\(alert.percent)% · \(alert.windowTitle)",
+                symbolName: "exclamationmark.triangle.fill",
+                tint: alert.level == .critical ? .red : .orange, priority: .timely,
+                createdAt: now, expiresAt: now.addingTimeInterval(8)), now: now)
+        }
+        publishActive(now: now)
     }
 
     private func refreshExternalActivities(_ events: [PedroActivityEvent]) {

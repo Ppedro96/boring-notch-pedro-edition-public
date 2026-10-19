@@ -237,19 +237,22 @@ struct PedroOpsSSHTarget: Equatable {
     let hostAlias: String
     let iconName: String
     let connectionHostAlias: String?
+    let identityFileName: String?
 
     init(
         id: String,
         title: String,
         hostAlias: String,
         iconName: String,
-        connectionHostAlias: String? = nil
+        connectionHostAlias: String? = nil,
+        identityFileName: String? = nil
     ) {
         self.id = id
         self.title = title
         self.hostAlias = hostAlias
         self.iconName = iconName
         self.connectionHostAlias = connectionHostAlias
+        self.identityFileName = identityFileName
     }
 
     var sshHostAlias: String {
@@ -520,5 +523,58 @@ private extension ProcessInfo.ThermalState {
         @unknown default:
             return "Desconhecido"
         }
+    }
+}
+
+
+enum InsightUsageLimitLevel: Int, Codable, Comparable {
+    case normal = 0, warning = 1, critical = 2
+
+    static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+
+    static func level(percent: Int?, style: PedroOpsMetricProgressStyle = .quota) -> Self {
+        guard style == .quota, let percent, (0...100).contains(percent) else { return .normal }
+        return percent >= 95 ? .critical : percent >= 80 ? .warning : .normal
+    }
+}
+
+struct InsightUsageLimitAlert: Equatable {
+    let providerID: String
+    let window: String
+    let percent: Int
+    let level: InsightUsageLimitLevel
+    let period: String
+    var id: String { providerID + "." + window }
+    var providerTitle: String {
+        switch providerID { case "claude": "Claude"; case "codex": "Codex"; case "gemini": "Gemini"; default: providerID }
+    }
+    var windowTitle: String { window == "week" ? "Semana" : providerID == "gemini" ? "Atual" : "5h" }
+}
+
+struct InsightUsageLimitTracker: Codable {
+    struct Episode: Codable, Equatable {
+        let period: String
+        let level: InsightUsageLimitLevel
+    }
+    private(set) var episodes: [String: Episode] = [:]
+
+    mutating func observe(providerID: String, window: String, percent: Int?,
+                          style: PedroOpsMetricProgressStyle = .quota, resetsAt: Date?,
+                          isStale: Bool, now: Date) -> InsightUsageLimitAlert? {
+        guard !isStale, style == .quota, let percent, (0...100).contains(percent),
+              resetsAt.map({ $0 > now }) ?? true else { return nil }
+        let id = providerID + "." + window
+        let period = resetsAt.map { String(Int($0.timeIntervalSince1970)) } ?? "unidentified"
+        let level = InsightUsageLimitLevel.level(percent: percent)
+        let previous = episodes[id]
+        if level == .normal {
+            // Without a reset date, a recovered reading starts a new warning episode.
+            if resetsAt == nil || previous?.period != period { episodes.removeValue(forKey: id) }
+            return nil
+        }
+        guard previous?.period != period || level > (previous?.level ?? .normal) else { return nil }
+        episodes[id] = Episode(period: period, level: level)
+        return InsightUsageLimitAlert(providerID: providerID, window: window, percent: percent,
+                                      level: level, period: period)
     }
 }

@@ -6,11 +6,13 @@
 //
 
 import AppKit
+import Defaults
 import SwiftUI
 
 struct TabSelectionView: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @EnvironmentObject private var vm: BoringViewModel
+    @Default(.hideDotIntegration) private var hideDot
     @State private var phoneDropTargeted = false
 
     var body: some View {
@@ -21,16 +23,18 @@ struct TabSelectionView: View {
             tabButton(label: "Clips", icon: "clipboard.fill", view: .pedroClipboard)
             tabButton(label: "Links", icon: "link", view: .pedroCapture)
             tabButton(label: "Celular", icon: "iphone", view: .pedroPhone)
-            tabButton(label: "Atividade · Dot e transferências", icon: "circle.dotted", view: .pedroActivity)
-            tabButton(label: "Usos", icon: "terminal.fill", view: .pedroUsage)
+            tabButton(label: hideDot ? "Arquivos · fila e busca" : "Atividade · arquivos e Dot",
+                      icon: hideDot ? "folder" : "circle.dotted", view: .pedroActivity)
+            tabButton(label: "Limites de IA", icon: "brain.head.profile", view: .pedroUsage)
+            tabButton(label: "Mixer", icon: "hifispeaker.fill", view: .pedroMixer)
             tabButton(label: "Alertas", icon: "bell.fill", view: .pedroAlerts)
-            tabButton(label: "Mac", icon: "cpu.fill", view: .pedroMac)
+            tabButton(label: "Mac", icon: "apple.logo", view: .pedroMac)
             tabButton(label: "Status · X99 e NAS", icon: "externaldrive.fill", view: .pedroStatus)
-            tabButton(label: "Alienware", icon: "laptopcomputer", view: .pedroAlienware)
+            tabButton(label: "Alienware", icon: "insight.alienware", view: .pedroAlienware)
             tabButton(label: "Proxmox", icon: "server.rack", view: .pedroProxmox)
             tabButton(label: "Stack", icon: "square.stack.3d.up.fill", view: .pedroStack)
         }
-        .id("pedro-tabs-v10")
+        .id("insight-tabs-v12")
         .clipShape(Capsule())
         .animation(.easeInOut(duration: 0.12), value: coordinator.currentView)
     }

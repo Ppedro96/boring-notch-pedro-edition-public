@@ -4,6 +4,7 @@ import AppKit
 private enum PedroUsageMode: String, CaseIterable, Identifiable {
     case usage = "Uso"
     case sessions = "Sessoes"
+    case history = "Histórico"
 
     var id: String { rawValue }
 }
@@ -126,7 +127,7 @@ struct PedroOpsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.segmented)
-                    .frame(width: 142, height: headerHeight)
+                    .frame(width: 235, height: headerHeight)
 
                     Spacer(minLength: 6)
 
@@ -148,6 +149,8 @@ struct PedroOpsView: View {
                         cardHeight: bodyHeight,
                         spacing: spacing
                     )
+                } else if usageMode == .history {
+                    PedroUsageHistoryView()
                 } else {
                     sessionCardsStrip(
                         availableWidth: geometry.size.width,
@@ -164,22 +167,14 @@ struct PedroOpsView: View {
         cardHeight: CGFloat,
         spacing: CGFloat
     ) -> some View {
-        let cardWidth = CGFloat(
-            PedroOpsCardLayout.cardWidth(
-                cardCount: visibleCards.count,
-                availableWidth: Double(max(0, availableWidth)),
-                spacing: Double(spacing),
-                visibleLimit: PedroAgentSession.visibleLimit
-            )
-        )
-
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: spacing) {
-                ForEach(visibleCards) { card in
-                    PedroOpsUsageCardView(card: card, width: cardWidth, height: cardHeight)
-                }
+        let count = max(1, visibleCards.count)
+        let width = max(0, (availableWidth - spacing * CGFloat(count - 1)) / CGFloat(count))
+        return HStack(spacing: spacing) {
+            ForEach(visibleCards) { card in
+                PedroOpsUsageCardView(card: card, width: width, height: cardHeight)
             }
         }
+        .frame(width: availableWidth, height: cardHeight)
     }
 
     @ViewBuilder
@@ -761,6 +756,8 @@ private struct PedroAgentProviderIcon: View {
             identifiers = ["com.anthropic.claudefordesktop", "com.anthropic.claude"]
         case .codex:
             identifiers = ["com.openai.codex"]
+        case .opencode:
+            identifiers = ["ai.opencode.desktop"]
         }
 
         guard let url = identifiers.compactMap({ NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }).first else {
@@ -930,118 +927,86 @@ private struct PedroOpsUsageCardView: View {
     let width: CGFloat
     let height: CGFloat
 
+    private var limitLevel: InsightUsageLimitLevel {
+        guard card.state == .active else { return .normal }
+        return card.metrics.map { InsightUsageLimitLevel.level(percent: $0.progressPercent, style: $0.progressStyle) }.max() ?? .normal
+    }
+
     var body: some View {
         let padding = CGFloat(PedroOpsCardLayout.cardPadding)
         let contentWidth = CGFloat(PedroOpsCardLayout.contentWidth(totalWidth: Double(width)))
         let contentHeight = CGFloat(PedroOpsCardLayout.contentHeight(totalHeight: Double(height)))
-
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 7) {
                 PedroOpsCardIcon(card: card)
-                    .frame(width: 24, height: 24)
-                    .background(
-                        Circle()
-                            .fill(card.state.tint.opacity(0.16))
-                    )
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(card.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 4)
-
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(card.state.tint.opacity(0.12)))
+                Text(card.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white).lineLimit(1)
+                Spacer(minLength: 2)
                 if card.state == .warning {
-                    Text("Última leitura")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.yellow)
+                    Text("Última leitura").font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.yellow).lineLimit(1)
                 }
-                Circle()
-                    .fill(card.state.tint)
-                    .frame(width: 7, height: 7)
-                    .help(card.state.label)
+                if limitLevel != .normal {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(limitLevel == .critical ? Color.red : .orange)
+                        .help(limitLevel == .critical ? "Limite muito próximo (95% ou mais)" : "Próximo do limite (80% ou mais)")
+                } else {
+                    Circle().fill(card.state.tint).frame(width: 6, height: 6).help(card.state.label)
+                }
             }
-
             Spacer(minLength: 0)
-
-            if card.metrics.count == 1, let metric = card.metrics.first {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(metric.value)
-                            .font(.system(size: 30, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                        Text(metric.label)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.gray)
-                            .lineLimit(1)
-                    }
-
-                    if let progressPercent = metric.progressPercent {
-                        PedroOpsProgressBar(percent: progressPercent, style: metric.progressStyle)
-                            .frame(height: 4)
-                    }
-
-                    Text(metric.detail ?? "Sem reset")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.gray)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                HStack(alignment: .top, spacing: 10) {
-                    ForEach(Array(card.metrics.prefix(2)), id: \.label) { metric in
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                                Text(metric.value)
-                                    .font(.system(size: 27, weight: .bold, design: .rounded))
-                                    .monospacedDigit()
-                                    .foregroundStyle(.white)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.65)
-                                Text(metric.label)
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(.gray)
-                                    .lineLimit(1)
-                            }
-
-                            Group {
-                                if let progressPercent = metric.progressPercent {
-                                    PedroOpsProgressBar(percent: progressPercent, style: metric.progressStyle)
-                                } else {
-                                    Color.clear
-                                }
-                            }
-                            .frame(height: 4)
-
-                            Text(metric.detail ?? "Sem janela")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(.gray)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.75)
-                        }
+            HStack(alignment: .top, spacing: 10) {
+                ForEach(Array(card.metrics.prefix(2)), id: \.label) { metric in
+                    metricColumn(metric)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    }
                 }
             }
-
         }
         .frame(width: contentWidth, height: contentHeight, alignment: .topLeading)
         .padding(padding)
         .frame(width: width, height: height, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(nsColor: .secondarySystemFill).opacity(0.52))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .fill(Color.white.opacity(0.035)))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .stroke(limitLevel == .normal ? Color.white.opacity(0.075) :
+                    (limitLevel == .critical ? Color.red : .orange).opacity(0.30), lineWidth: 1))
         .help("\(card.subtitle). \(card.footnote ?? "")")
+    }
+
+    private func compactDetail(_ detail: String?) -> String {
+        guard let detail else { return "Sem janela" }
+        return detail.replacingOccurrences(of: "^(reseta|renova)\\s+", with: "", options: [.regularExpression, .caseInsensitive])
+            .replacingOccurrences(of: " de ", with: " ")
+    }
+
+    private func metricColumn(_ metric: PedroOpsMetric) -> some View {
+        let level = card.state == .active ? InsightUsageLimitLevel.level(percent: metric.progressPercent, style: metric.progressStyle) : .normal
+        let tint: Color = card.state == .warning ? .secondary : level == .critical ? .red : level == .warning ? .orange : .white
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 1) {
+                Text(metric.value.hasSuffix("%") ? String(metric.value.dropLast()) : metric.value)
+                    .font(.system(size: 31, weight: .semibold, design: .rounded)).monospacedDigit()
+                    .lineLimit(1).minimumScaleFactor(0.85)
+                if metric.value.hasSuffix("%") {
+                    Text("%").font(.system(size: 16, weight: .medium)).foregroundStyle(tint.opacity(0.7))
+                }
+            }
+            .foregroundStyle(tint)
+            Text(metric.label).font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.65))
+            Group {
+                if let percent = metric.progressPercent {
+                    PedroOpsProgressBar(percent: percent, style: metric.progressStyle, isStale: card.state != .active)
+                } else { Color.clear }
+            }.frame(height: 4)
+            Text(compactDetail(metric.detail))
+                .font(.system(size: 10, weight: .regular)).foregroundStyle(.white.opacity(0.55))
+                .lineLimit(1).minimumScaleFactor(0.9).help(metric.detail ?? "Sem janela")
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -1605,7 +1570,7 @@ private struct PedroOpsCardIcon: View {
                     .scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
             } else {
-                Image(systemName: card.iconName)
+                InsightSemanticIcon(name: card.id == "alienware" ? "insight.alienware" : card.iconName)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(card.state.tint)
             }
@@ -1656,6 +1621,7 @@ private struct PedroOpsMetricColumn: View {
 private struct PedroOpsProgressBar: View {
     let percent: Int
     let style: PedroOpsMetricProgressStyle
+    var isStale: Bool = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -1675,13 +1641,14 @@ private struct PedroOpsProgressBar: View {
     }
 
     private var tint: Color {
+        if isStale { return .gray }
         if style == .relative {
             return .green
         }
-        if clampedPercent >= 90 {
+        if clampedPercent >= 95 {
             return .red
         }
-        if clampedPercent >= 70 {
+        if clampedPercent >= 80 {
             return .orange
         }
         return .green

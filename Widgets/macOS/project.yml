@@ -1,0 +1,42 @@
+name: InsightBatteries
+options:
+  bundleIdPrefix: marketing.insight360
+settings:
+  base:
+    MACOSX_DEPLOYMENT_TARGET: '14.0'
+    SWIFT_VERSION: '5.0'
+    CURRENT_PROJECT_VERSION: '4'
+    MARKETING_VERSION: '1.0'
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGN_IDENTITY: '-'
+targets:
+  InsightBatteries:
+    type: application
+    platform: macOS
+    sources: [Host, Shared]
+    dependencies:
+      - target: GalaxyBatteriesWidget
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: marketing.insight360.batteries
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Insight Batteries
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_CFBundleURLTypes: []
+  GalaxyBatteriesWidget:
+    type: app-extension
+    platform: macOS
+    sources: [Extension, Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: marketing.insight360.batteries.widget
+        APPLICATION_EXTENSION_API_ONLY: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Extension/Info.plist
+        SKIP_INSTALL: YES
+schemes:
+  InsightBatteries:
+    build:
+      targets:
+        InsightBatteries: all

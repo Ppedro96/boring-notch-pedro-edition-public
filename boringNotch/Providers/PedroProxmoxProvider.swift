@@ -6,19 +6,30 @@ import Foundation
 final class PedroProxmoxProvider: ObservableObject {
     static let shared = PedroProxmoxProvider()
 
-    @Published private(set) var snapshot = PedroProxmoxSnapshot.empty
-    @Published private(set) var isLoading = false
-    @Published private(set) var lastUpdated: Date?
+    @Published private var fleet: PedroProxmoxFleetState
+    private let defaults: UserDefaults
+    private static let selectedNodeKey = "pedroProxmoxSelectedNode"
 
-    private let target = PedroOpsSSHTarget(
-        id: "proxmox",
-        title: "Proxmox LAB",
-        hostAlias: PedroLocalConfiguration.sshHost("pedro_ssh_proxmox", fallback: "root@proxmox.example.invalid"),
-        iconName: "server.rack"
-    )
+    var snapshot: PedroProxmoxSnapshot { fleet.snapshot }
+    var isLoading: Bool { fleet.isLoading }
+    var lastUpdated: Date? { fleet.lastUpdated }
+    var selectedNode: PedroProxmoxNode { fleet.selectedNode }
     private var timer: Timer?
     private var appActiveObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
+
+    private init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let node = defaults.string(forKey: Self.selectedNodeKey).flatMap(PedroProxmoxNode.init(rawValue:)) ?? .lab
+        fleet = PedroProxmoxFleetState(selectedNode: node)
+    }
+
+    func select(_ node: PedroProxmoxNode) {
+        guard node != selectedNode else { return }
+        fleet.select(node)
+        defaults.set(node.rawValue, forKey: Self.selectedNodeKey)
+        refresh()
+    }
 
     func start() {
         refresh()
@@ -67,16 +78,16 @@ final class PedroProxmoxProvider: ObservableObject {
     }
 
     func refresh() {
-        guard !isLoading else { return }
-        isLoading = true
-        let target = target
+        let node = selectedNode
+        guard fleet.beginRefresh(for: node) else { return }
+        let target = node.target
 
         DispatchQueue.global(qos: .utility).async {
             let command = PedroOpsSSHRunner.remoteCommand(for: Self.remoteProbeScript)
             let result = PedroOpsSSHRunner().status(for: target, remoteCommand: command)
             let nextSnapshot: PedroProxmoxSnapshot
             if result.isReachable {
-                nextSnapshot = PedroProxmoxSnapshotParser.parse(output: result.output)
+                nextSnapshot = PedroProxmoxSnapshotParser.parse(output: result.output, hostName: node.rawValue)
             } else {
                 nextSnapshot = PedroProxmoxSnapshot(
                     host: nil,
@@ -86,20 +97,19 @@ final class PedroProxmoxProvider: ObservableObject {
             }
 
             DispatchQueue.main.async {
-                self.snapshot = nextSnapshot
-                self.lastUpdated = nextSnapshot.errorMessage == nil ? Date() : self.lastUpdated
-                self.isLoading = false
+                self.fleet.finishRefresh(for: node, snapshot: nextSnapshot, at: Date())
             }
         }
     }
 
-    nonisolated private static let remoteProbeScript = """
+    nonisolated static let remoteProbeScript = """
     node_name=$(hostname 2>/dev/null || printf lab)
     printf '__HOST__\\n'
     pvesh get /nodes/$node_name/status --output-format json 2>/dev/null
     printf '\\n__GUESTS__\\n'
     pvesh get /cluster/resources --type vm --output-format json 2>/dev/null
     printf '\\n__THERMALS__\\n'
+    printf 'node_name=%s\\n' "$node_name"
     read _ u1 n1 s1 i1 w1 q1 sq1 st1 _ < /proc/stat
     total1=$((u1+n1+s1+i1+w1+q1+sq1+st1))
     idle1=$((i1+w1))
@@ -119,6 +129,23 @@ final class PedroProxmoxProvider: ObservableObject {
             }
         }
     }')
+    if [ -z "$cpu_temp" ]; then
+        for sensor in /sys/class/hwmon/hwmon*; do
+            sensor_name=$(cat "$sensor/name" 2>/dev/null)
+            case "$sensor_name" in
+                k10temp|coretemp)
+                    for reading in "$sensor"/temp*_input; do
+                        label=$(cat "${reading%_input}_label" 2>/dev/null)
+                        case "$label" in
+                            Tdie|Tctl|"Package id 0")
+                                cpu_temp=$(awk '{printf "%d", $1 / 1000}' "$reading" 2>/dev/null)
+                                break ;;
+                        esac
+                    done
+                    [ -n "$cpu_temp" ] && break ;;
+            esac
+        done
+    fi
     gpu_temp=$(sensors 2>/dev/null | awk '
     /nouveau-pci|nvidia-pci/ { gpu_section = 1; next }
     gpu_section && /temp1:/ {
@@ -130,9 +157,17 @@ final class PedroProxmoxProvider: ObservableObject {
             }
         }
     }')
-    gpu_line=$(lspci -nn 2>/dev/null | awk '/NVIDIA Corporation/ && (/VGA compatible controller/ || /3D controller/) { print; exit }')
+    gpu_line=$(lspci -nn 2>/dev/null | awk '/VGA compatible controller|3D controller|Display controller/ { print; exit }')
     gpu_slot=$(printf '%s' "$gpu_line" | awk '{print $1}')
-    gpu_driver=$(basename "$(readlink /sys/bus/pci/devices/0000:$gpu_slot/driver 2>/dev/null)" 2>/dev/null)
+    gpu_address="0000:$gpu_slot"
+    gpu_driver=$(basename "$(readlink /sys/bus/pci/devices/$gpu_address/driver 2>/dev/null)" 2>/dev/null)
+    if [ -z "$gpu_temp" ]; then
+        for reading in /sys/bus/pci/devices/$gpu_address/hwmon/hwmon*/temp1_input; do
+            [ -r "$reading" ] || continue
+            gpu_temp=$(awk '{printf "%d", $1 / 1000}' "$reading")
+            break
+        done
+    fi
     gpu_guest=
     if [ "$gpu_driver" = vfio-pci ] && [ -n "$gpu_slot" ]; then
         for config in /etc/pve/qemu-server/*.conf; do
@@ -151,11 +186,23 @@ final class PedroProxmoxProvider: ObservableObject {
     if [ -z "$gpu_name" ]; then
         gpu_name=$(printf '%s\\n' "$gpu_line" | sed -n 's/.*NVIDIA Corporation \\([^[]*\\).*/\\1/p' | sed 's/[[:space:]]*$//')
     fi
+    if [ -z "$gpu_name" ]; then
+        gpu_name=$(printf '%s\\n' "$gpu_line" | sed -n 's/.*AMD\\/ATI] \\([^[]*\\).*/Radeon \\1/p' | sed 's/[[:space:]]*$//')
+    fi
+    if [ -z "$gpu_name" ]; then
+        gpu_name=$(printf '%s\\n' "$gpu_line" | sed 's/^[^:]*:..\\.[0-9] [^:]*: //; s/ \\[.*//')
+    fi
     gpu_memory_gb=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | awk 'NR == 1 { printf "%d", ($1 + 512) / 1024 }')
     if [ -z "$gpu_memory_gb" ]; then
         case "$gpu_line" in
             *"[10de:1c82]"*) gpu_memory_gb=4 ;;
         esac
+    fi
+    if [ -z "$gpu_memory_gb" ] && [ -r "/sys/bus/pci/devices/$gpu_address/mem_info_vram_total" ]; then
+        gpu_memory_gb=$(awk '{printf "%d", ($1 + 536870912) / 1073741824}' "/sys/bus/pci/devices/$gpu_address/mem_info_vram_total")
+    fi
+    if [ -z "$gpu_memory_gb" ] && [ "$gpu_driver" = radeon ]; then
+        gpu_memory_gb=$(journalctl -k -b --no-pager -o cat -n 1 -g "radeon $gpu_address: VRAM:" 2>/dev/null | awk '/VRAM:/ { for (i=1; i<NF; i++) if ($i == "VRAM:") { printf "%d", ($(i+1) + 512) / 1024; exit } }')
     fi
     printf 'cpu_temp=%s\\n' "$cpu_temp"
     printf 'gpu_temp=%s\\n' "$gpu_temp"

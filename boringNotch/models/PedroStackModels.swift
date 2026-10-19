@@ -1,6 +1,7 @@
 import Foundation
 
 enum PedroStackSection: String, Codable, CaseIterable, Identifiable {
+    // Keep the feed's serialized key while displaying local production in the UI.
     case cloud
     case core
     case operation
@@ -10,7 +11,7 @@ enum PedroStackSection: String, Codable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .cloud: "Cloud"
+        case .cloud: "Local"
         case .core: "Core"
         case .operation: "Operação"
         case .backup: "Backup"
@@ -19,7 +20,7 @@ enum PedroStackSection: String, Codable, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
-        case .cloud: "cloud.fill"
+        case .cloud: "server.rack"
         case .core: "square.stack.3d.up.fill"
         case .operation: "waveform.path.ecg"
         case .backup: "clock.arrow.circlepath"
@@ -61,6 +62,11 @@ struct PedroStackCard: Codable, Identifiable, Equatable {
     let icon: String
     let metrics: [PedroStackMetric]
     let updatedAt: Date?
+
+    var displayIcon: String {
+        let name = (id + " " + title).lowercased()
+        return name.contains("vps") ? "cloud.fill" : icon
+    }
 
     func checkingFreshness(now: Date = Date(), feedUnavailable: Bool = false) -> Self {
         guard feedUnavailable || updatedAt.map({ now.timeIntervalSince($0) > 300 }) == true else { return self }

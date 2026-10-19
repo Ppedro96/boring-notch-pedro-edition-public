@@ -20,41 +20,50 @@ struct SettingsView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedTab) {
+                HStack(spacing: 9) {
+                    Image("InsightEmblem").resizable().scaledToFit().frame(width: 36, height: 36)
+                        .padding(4).background(Color.black, in: RoundedRectangle(cornerRadius: 10))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Insight Notch").font(.system(size: 13, weight: .semibold))
+                        Text("Insight 360").font(.system(size: 10)).foregroundStyle(.secondary)
+                    }
+                }.padding(.vertical, 8)
+
                 NavigationLink(value: "General") {
-                    Label("General", systemImage: "gear")
+                    Label("Geral", systemImage: "gear")
                 }
                 NavigationLink(value: "Appearance") {
-                    Label("Appearance", systemImage: "eye")
+                    Label("Aparência", systemImage: "eye")
                 }
                 NavigationLink(value: "Media") {
-                    Label("Media", systemImage: "play.laptopcomputer")
+                    Label("Mídia", systemImage: "play.laptopcomputer")
                 }
                 NavigationLink(value: "Calendar") {
-                    Label("Calendar", systemImage: "calendar")
+                    Label("Calendário", systemImage: "calendar")
                 }
                 NavigationLink(value: "HUD") {
                     Label("HUDs", systemImage: "dial.medium.fill")
                 }
                 NavigationLink(value: "Battery") {
-                    Label("Battery", systemImage: "battery.100.bolt")
+                    Label("Bateria", systemImage: "battery.100.bolt")
                 }
 //                NavigationLink(value: "Downloads") {
 //                    Label("Downloads", systemImage: "square.and.arrow.down")
 //                }
                 NavigationLink(value: "Shelf") {
-                    Label("Shelf", systemImage: "books.vertical")
+                    Label("Arquivos", systemImage: "books.vertical")
                 }
                 NavigationLink(value: "Shortcuts") {
-                    Label("Shortcuts", systemImage: "keyboard")
+                    Label("Atalhos", systemImage: "keyboard")
                 }
                 // NavigationLink(value: "Extensions") {
                 //     Label("Extensions", systemImage: "puzzlepiece.extension")
                 // }
                 NavigationLink(value: "Advanced") {
-                    Label("Advanced", systemImage: "gearshape.2")
+                    Label("Avançado", systemImage: "gearshape.2")
                 }
                 NavigationLink(value: "About") {
-                    Label("About", systemImage: "info.circle")
+                    Label("Sobre", systemImage: "info.circle")
                 }
             }
             .listStyle(SidebarListStyle())
@@ -136,6 +145,15 @@ struct GeneralSettings: View {
 
     var body: some View {
         Form {
+            Section {
+                Defaults.Toggle(key: .hideDotIntegration) {
+                    Text("Ocultar Dot")
+                }
+            } header: {
+                Text("Integrações")
+            } footer: {
+                Text("Oculta o Dot e seus avisos no Notch. Transferências continuam disponíveis. Desative para exibir o Dot novamente.")
+            }
             Section {
                 Toggle(isOn: Binding(
                     get: { Defaults[.menubarIcon] },
@@ -255,7 +273,7 @@ struct GeneralSettings: View {
             .controlSize(.extraLarge)
         }
         .accentColor(.effectiveAccent)
-        .navigationTitle("General")
+        .navigationTitle("Insight Notch · Geral")
         .onChange(of: openNotchOnHover) {
             if !openNotchOnHover {
                 enableGestures = true
@@ -363,7 +381,7 @@ struct Charge: View {
             }
         }
         .accentColor(.effectiveAccent)
-        .navigationTitle("Battery")
+        .navigationTitle("Insight Notch · Bateria")
     }
 }
 
@@ -528,7 +546,7 @@ struct HUD: View {
             }
         }
         .accentColor(.effectiveAccent)
-        .navigationTitle("HUDs")
+        .navigationTitle("Insight Notch · HUDs")
         .task {
             accessibilityAuthorized = await XPCHelperClient.shared.isAccessibilityAuthorized()
         }
@@ -643,7 +661,7 @@ struct Media: View {
             }
         }
         .accentColor(.effectiveAccent)
-        .navigationTitle("Media")
+        .navigationTitle("Insight Notch · Mídia")
     }
 
     // Only show controller options that are available on this macOS version
@@ -754,7 +772,7 @@ struct CalendarSettings: View {
             }
         }
         .accentColor(.effectiveAccent)
-        .navigationTitle("Calendar")
+        .navigationTitle("Insight Notch · Calendário")
         .onAppear {
             Task {
                 await calendarManager.checkCalendarAuthorization()
@@ -782,80 +800,31 @@ func lighterColor(from nsColor: NSColor, amount: CGFloat = 0.14) -> Color {
 }
 
 struct About: View {
-    @State private var showBuildNumber: Bool = false
-
     var body: some View {
-        VStack {
-            Form {
-                Section {
-                    HStack {
-                        Text("Release name")
-                        Spacer()
-                        Text(Defaults[.releaseName])
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        if showBuildNumber {
-                            Text("(\(Bundle.main.buildVersionNumber ?? ""))")
-                                .foregroundStyle(.secondary)
-                        }
-                        Text(Bundle.main.releaseVersionNumber ?? "unkown")
-                            .foregroundStyle(.secondary)
-                    }
-                    .onTapGesture {
-                        withAnimation {
-                            showBuildNumber.toggle()
-                        }
-                    }
-                } header: {
-                    Text("Version info")
-                }
-
-                HStack(spacing: 30) {
-                    Spacer(minLength: 0)
-                    Button {
-                        NSWorkspace.shared.open(sponsorPage)
-                    } label: {
-                        VStack(spacing: 5) {
-                            Image(systemName: "cup.and.saucer.fill")
-                                .imageScale(.large)
-                            Text("Support Us")
-                                .foregroundStyle(.white)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    Spacer(minLength: 0)
-                    Button {
-                        NSWorkspace.shared.open(productPage)
-                    } label: {
-                        VStack(spacing: 5) {
-                            Image("Github")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 18)
-                            Text("GitHub")
-                                .foregroundStyle(.white)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    Spacer(minLength: 0)
-                }
-                .buttonStyle(PlainButtonStyle())
+        Form {
+            Section {
+                VStack(spacing: 10) {
+                    Image("InsightAppIcon").resizable().scaledToFit().frame(width: 84, height: 84)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                    Text("Insight Notch").font(.system(size: 25, weight: .semibold))
+                    Text("Seu Mac e sua stack, em um só lugar.")
+                        .font(.system(size: 13)).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity).padding(.vertical, 16)
+                LabeledContent("Edição", value: "Insight 360")
+                LabeledContent("Versão", value: Bundle.main.releaseVersionNumber ?? "—")
+                LabeledContent("Build", value: Bundle.main.buildVersionNumber ?? "—")
             }
-            VStack(spacing: 0) {
-                Divider()
-                Text("Made with 🫶🏻 by not so boring not.people")
+            Section("Insight 360") {
+                Link("Conheça a Insight 360", destination: URL(string: "https://example.com")!)
+                Text("Previews no Dock, mixer, limites de IA, atalhos e monitoramento da sua stack.")
                     .foregroundStyle(.secondary)
-                    .padding(.top, 5)
-                    .padding(.bottom, 7)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 10)
             }
-            .frame(maxWidth: .infinity, alignment: .center)
-        }
-        .navigationTitle("About")
+            Section("Créditos") {
+                Link("Base original: Boring Notch · TheBoredTeam", destination: productPage)
+                Text("Personalizado para Insight 360. Os créditos e licenças dos projetos originais foram preservados.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }.navigationTitle("Sobre o Insight Notch")
     }
 }
 
@@ -964,7 +933,7 @@ struct Shelf: View {
             }
         }
         .accentColor(.effectiveAccent)
-        .navigationTitle("Shelf")
+        .navigationTitle("Insight Notch · Arquivos")
     }
 }
 
@@ -1115,8 +1084,8 @@ struct Appearance: View {
     @Default(.customVisualizers) var customVisualizers
     @Default(.selectedVisualizer) var selectedVisualizer
 
-    let icons: [String] = ["logo2"]
-    @State private var selectedIcon: String = "logo2"
+    let icons: [String] = ["InsightAppIcon"]
+    @State private var selectedIcon: String = "InsightAppIcon"
     @State private var selectedListVisualizer: CustomVisualizer? = nil
     @State private var isPresented: Bool = false
     @State private var name: String = ""
@@ -1347,7 +1316,7 @@ struct Appearance: View {
             }
         }
         .accentColor(.effectiveAccent)
-        .navigationTitle("Appearance")
+        .navigationTitle("Insight Notch · Aparência")
     }
 
     func checkVideoInput() -> Bool {
@@ -1368,8 +1337,8 @@ struct Advanced: View {
     
     @State private var customAccentColor: Color = .accentColor
     @State private var selectedPresetColor: PresetAccentColor? = nil
-    let icons: [String] = ["logo2"]
-    @State private var selectedIcon: String = "logo2"
+    let icons: [String] = ["InsightAppIcon"]
+    @State private var selectedIcon: String = "InsightAppIcon"
     
     // macOS accent colors
     enum PresetAccentColor: String, CaseIterable, Identifiable {
@@ -1508,6 +1477,9 @@ struct Advanced: View {
             }
             
             Section {
+                Defaults.Toggle(key: .insightSubtleGlass) {
+                    Text("Vidro sutil")
+                }
                 Defaults.Toggle(key: .enableShadow) {
                     Text("Enable window shadow")
                 }
@@ -1518,50 +1490,17 @@ struct Advanced: View {
                 Text("Window Appearance")
             }
             
-            Section {
-                HStack {
-                    ForEach(icons, id: \.self) { icon in
-                        Spacer()
-                        VStack {
-                            Image(icon)
-                                .resizable()
-                                .frame(width: 80, height: 80)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 20, style: .circular)
-                                        .strokeBorder(
-                                            icon == selectedIcon ? Color.effectiveAccent : .clear,
-                                            lineWidth: 2.5
-                                        )
-                                )
-
-                            Text("Default")
-                                .fontWeight(.medium)
-                                .font(.caption)
-                                .foregroundStyle(icon == selectedIcon ? .white : .secondary)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 3)
-                                .background(
-                                    Capsule()
-                                        .fill(icon == selectedIcon ? Color.effectiveAccent : .clear)
-                                )
-                        }
-                        .onTapGesture {
-                            withAnimation {
-                                selectedIcon = icon
-                            }
-                            NSApp.applicationIconImage = NSImage(named: icon)
-                        }
-                        Spacer()
+            Section("Identidade do app") {
+                HStack(spacing: 14) {
+                    Image("InsightAppIcon").resizable().scaledToFit().frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 15))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Insight Notch").font(.headline)
+                        Text("Emblema oficial da Insight 360").font(.caption).foregroundStyle(.secondary)
                     }
-                }
-                .disabled(true)
-            } header: {
-                HStack {
-                    Text("App icon")
-                    customBadge(text: "Coming soon")
-                }
+                }.padding(.vertical, 4)
             }
-            
+
             Section {
                 Defaults.Toggle(key: .extendHoverArea) {
                     Text("Extend hover area")
@@ -1580,7 +1519,7 @@ struct Advanced: View {
             }
         }
         .accentColor(.effectiveAccent)
-        .navigationTitle("Advanced")
+        .navigationTitle("Insight Notch · Avançado")
         .onAppear {
             loadCustomColor()
         }
@@ -1700,7 +1639,7 @@ struct Shortcuts: View {
             }
         }
         .accentColor(.effectiveAccent)
-        .navigationTitle("Shortcuts")
+        .navigationTitle("Insight Notch · Atalhos")
     }
 }
 

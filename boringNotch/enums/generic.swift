@@ -39,6 +39,15 @@ public enum NotchViews {
     case pedroCapture
     case pedroActivity
     case pedroPhone
+    case pedroMixer
+
+    /// These panes contain vertical lists, history or text editors; the wheel belongs to the content.
+    var ownsVerticalScrolling: Bool {
+        switch self {
+        case .home, .pedroUsage, .pedroCapture, .pedroActivity, .pedroPhone, .pedroMixer: true
+        default: false
+        }
+    }
 }
 
 enum SettingsEnum {

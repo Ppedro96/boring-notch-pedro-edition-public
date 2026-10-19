@@ -2,8 +2,26 @@ import SwiftUI
 
 struct PedroActionsView: View {
     @ObservedObject private var manager = PedroMoonlightManager.shared
+    @AppStorage("pedroActionsSectionV1") private var section = "moonlight"
 
     var body: some View {
+        GeometryReader { geometry in
+            VStack(spacing: 6) {
+                HStack {
+                    Picker("Controle de computadores", selection: $section) {
+                        Text("Moonlight").tag("moonlight")
+                        Text("Mesa contínua").tag("desk")
+                    }.pickerStyle(.segmented).labelsHidden().frame(width: min(310, geometry.size.width))
+                    Spacer(minLength: 0)
+                }.frame(height: 26)
+                Group {
+                    if section == "desk" { PedroContinuousDeskView() }
+                    else { moonlight }
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }.frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+        }.clipped()
+    }
+    private var moonlight: some View {
         VStack(spacing: 7) {
             HStack(spacing: 8) {
                 Text("Moonlight").font(.system(size: 14, weight: .semibold))

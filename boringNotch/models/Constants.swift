@@ -101,6 +101,8 @@ extension Defaults.Keys {
     static let mirrorShape = Key<MirrorShapeEnum>("mirrorShape", default: MirrorShapeEnum.rectangle)
     static let settingsIconInNotch = Key<Bool>("settingsIconInNotch", default: true)
     static let lightingEffect = Key<Bool>("lightingEffect", default: true)
+    static let hideDotIntegration = Key<Bool>("hideDotIntegration", default: false)
+    static let insightSubtleGlass = Key<Bool>("insightSubtleGlass", default: true)
     static let enableShadow = Key<Bool>("enableShadow", default: true)
     static let cornerRadiusScaling = Key<Bool>("cornerRadiusScaling", default: true)
 

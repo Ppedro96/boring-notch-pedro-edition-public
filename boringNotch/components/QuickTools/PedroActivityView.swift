@@ -1,22 +1,30 @@
 import SwiftUI
+import Defaults
 
 struct PedroActivityView: View {
     @ObservedObject private var manager = PedroActivityManager.shared
     @ObservedObject private var transfers = PedroTransferService.shared
+    @Default(.hideDotIntegration) private var hideDot
     @State private var filter = "dot"
 
-    private var filtered: [PedroActivityEvent] { manager.events.filter { filter == "dot" ? $0.isDot : !$0.isDot } }
+    private var showingDot: Bool { !hideDot && filter == "dot" }
+
+    private var filtered: [PedroActivityEvent] { manager.events.filter { showingDot ? $0.isDot : !$0.isDot } }
 
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 6) {
                 HStack(spacing: 8) {
-                    Picker("Atividade", selection: $filter) {
-                        Text("Dot").tag("dot")
-                        Text("Transferencias").tag("transfer")
-                    }.pickerStyle(.segmented).labelsHidden().frame(width: 225)
+                    if hideDot {
+                        Text("Transferências").font(.system(size: 13, weight: .semibold))
+                    } else {
+                        Picker("Atividade", selection: $filter) {
+                            Text("Dot").tag("dot")
+                            Text("Transferencias").tag("transfer")
+                        }.pickerStyle(.segmented).labelsHidden().frame(width: 225)
+                    }
                     Spacer(minLength: 0)
-                    if filter == "transfer" {
+                    if !showingDot {
                         Button { transfers.chooseFiles() } label: { Image(systemName: "plus") }
                             .help("Copiar arquivos para uma pasta ou NAS montado")
                             .disabled(transfers.choosingFiles)
@@ -28,8 +36,8 @@ struct PedroActivityView: View {
                 .buttonStyle(.plain).font(.system(size: 14)).frame(height: 25)
                 if filtered.isEmpty {
                     VStack(spacing: 8) {
-                        Image(systemName: filter == "dot" ? "circle.dotted" : "arrow.down.doc").font(.system(size: 24)).foregroundStyle(.secondary)
-                        Text(filter == "dot" ? "Nenhum aviso do Dot" : "Nenhuma transferencia").font(.system(size: 13, weight: .medium))
+                        Image(systemName: showingDot ? "circle.dotted" : "arrow.down.doc").font(.system(size: 24)).foregroundStyle(.secondary)
+                        Text(showingDot ? "Nenhum aviso do Dot" : "Nenhuma transferencia").font(.system(size: 13, weight: .medium))
                     }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {

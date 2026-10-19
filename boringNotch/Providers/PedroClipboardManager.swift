@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import OSLog
 
 extension Notification.Name {
     static let pedroClipboardShouldFocusSearch = Notification.Name("pedroClipboardShouldFocusSearch")
@@ -20,6 +21,7 @@ final class PedroClipboardManager: ObservableObject {
     private var timer: Timer?
     private var lastChangeCount: Int
     private weak var targetApplication: NSRunningApplication?
+    private let logger = Logger(subsystem: "theboringteam.boringnotch", category: "PedroAreaScreenshot")
 
     var filteredItems: [PedroClipboardItem] {
         let value = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -105,6 +107,10 @@ final class PedroClipboardManager: ObservableObject {
 
     func captureSelectedArea() async {
         guard !isCapturingArea else { return }
+        guard CGPreflightScreenCaptureAccess() else {
+            presentCapturePermissionAlert()
+            return
+        }
         isCapturingArea = true
         let changeCount = pasteboard.changeCount
         let windows = NSApp.windows.compactMap { $0 as? BoringNotchSkyLightWindow }.filter(\.isVisible)
@@ -121,16 +127,43 @@ final class PedroClipboardManager: ObservableObject {
         }
         do {
             try await Task.sleep(for: .milliseconds(200))
-            let status = try await PedroAreaScreenshot().capture()
-            if status == 0, pasteboard.changeCount != changeCount,
-               NSImage(pasteboard: pasteboard) != nil {
+            let result = try await PedroAreaScreenshot().capture()
+            let hasNewImage = pasteboard.changeCount != changeCount && NSImage(pasteboard: pasteboard) != nil
+            switch result.outcome(hasNewImage: hasNewImage) {
+            case .copied:
                 query = ""
                 capturePasteboardIfNeeded()
                 showFeedback("Print copiado")
+                logger.notice("Area capture copied an image to the clipboard")
+            case .cancelled:
+                logger.info("Area capture cancelled; clipboard preserved")
+            case .failed:
+                logger.error("Area capture failed: status=\(result.status), diagnostic=\(result.diagnostic, privacy: .public)")
+                if !CGPreflightScreenCaptureAccess() {
+                    presentCapturePermissionAlert()
+                } else {
+                    showFeedback("Falha no print", isError: true)
+                }
             }
-            // Escape leaves the clipboard untouched. Native capture errors use its own dialog.
         } catch {
+            logger.error("Area capture could not launch: \(error.localizedDescription, privacy: .public)")
             showFeedback("Falha no print", isError: true)
+        }
+    }
+
+    private func presentCapturePermissionAlert() {
+        showFeedback("Autorize a captura", isError: true)
+        logger.warning("Area capture blocked: ScreenRecording=false")
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Autorize a captura de tela"
+        alert.informativeText = "O macOS não autorizou esta versão do Insight Notch. Em Privacidade e Segurança > Gravação de Tela e Áudio do Sistema, permita o Insight Notch e reabra o app. Se ele já estiver ativado, remova a entrada antiga e adicione /Applications/Insight Notch.app novamente."
+        alert.addButton(withTitle: "Abrir Ajustes")
+        alert.addButton(withTitle: "Cancelar")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn,
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+            NSWorkspace.shared.open(url)
         }
     }
 

@@ -5,6 +5,11 @@ import SQLite3
 struct PedroOpsModelTests {
     static func main() {
         testLocalSSHConfiguration()
+        let gemini = PedroGeminiUsageReader.parse(strings: ["Cota usada: 23%", "Cota usada: 23%", "01:10: o limite de uso é redefinido Limite semanal out. 6, 14:10: o limite de uso é redefinido Cota usada: 46%"], now: Date())
+        assert(gemini?["current"] as? Int == 23 && gemini?["week"] as? Int == 46)
+        assert(PedroGeminiUsageReader.parse(strings: ["Cota usada: 23%", "Limite semanal"], now: Date()) == nil)
+        let zero = PedroGeminiUsageReader.parse(strings: ["Cota usada: 0%", "Limite semanal", "Cota usada: 0%"], now: Date())
+        assert(zero?["current"] as? Int == 0 && zero?["week"] as? Int == 0)
         testUsageCardsIncludeClaudeAndCodex()
         testUsageCardsCarryAppBundleIdentifiers()
         testUsageCardsReflectSessionWindows()
@@ -46,6 +51,7 @@ struct PedroOpsModelTests {
         testClaudeUsageParserExtractsFiveHourAndWeeklyLimits()
         testClaudeUsageSummaryUsesPercentDisplays()
         testSSHArgumentsUseExplicitUserKey()
+        testProxmoxSSHTargetUsesDedicatedKey()
         testAlienwareSSHTargetUsesX99Bridge()
         testAlienwareStatusCardBuildsSeparately()
         testMacTabTitle()
@@ -60,6 +66,9 @@ struct PedroOpsModelTests {
         testSSHRemoteCommandQuotesProbeScript()
         testProxmoxProbeParserExtractsHostAndGuests()
         testProxmoxSnapshotSeparatesContainersAndVMs()
+        testProxmoxClusterGuestsStayOnTheirOwnNode()
+        testProxmoxRejectsUnexpectedHost()
+        testProxmoxNodeSwitchKeepsLateResponsesSeparate()
         testClaudeHistoryCountsRecentDistinctSessions()
         print("PedroOpsModelTests passed")
     }
@@ -83,11 +92,11 @@ struct PedroOpsModelTests {
     static func testUsageCardsIncludeClaudeAndCodex() {
         let cards = PedroOpsSnapshotBuilder().usageCards(snapshot: .from(summaries: [:]))
 
-        assert(cards.map(\.id) == ["claude", "codex"], "Expected Claude and Codex usage cards")
+        assert(cards.map(\.id) == ["claude", "codex", "gemini"], "Expected all three usage cards")
         assert(cards[0].title == "Claude", "Expected first usage card to be Claude")
         assert(cards[1].title == "Codex", "Expected second usage card to be Codex")
         assert(cards.allSatisfy { card in
-            !card.metrics.isEmpty && card.metrics.allSatisfy { ["5h", "Semana"].contains($0.label) }
+            !card.metrics.isEmpty && card.metrics.allSatisfy { ["5h", "Atual", "Semana"].contains($0.label) }
         }, "Expected usage cards to show only available usage windows")
     }
 
@@ -546,11 +555,11 @@ struct PedroOpsModelTests {
     static func testCodexAppServerUsesRealHomeInsideSandbox() {
         let environment = PedroOpsCodexAppServerClient.processEnvironment(
             base: ["HOME": "/sandbox/container"],
-            userHome: "/Users/pedro"
+            userHome: "/Users/user"
         )
 
-        assert(environment["HOME"] == "/Users/pedro", "Expected subprocess HOME to leave the app sandbox container")
-        assert(environment["CODEX_HOME"] == "/Users/pedro/.codex", "Expected subprocess to use the authenticated Codex home")
+        assert(environment["HOME"] == "/Users/user", "Expected subprocess HOME to leave the app sandbox container")
+        assert(environment["CODEX_HOME"] == "/Users/user/.codex", "Expected subprocess to use the authenticated Codex home")
     }
 
     static func testCodexUsageSummaryMapsSingleWeeklyRateLimitWindow() {
@@ -973,6 +982,82 @@ struct PedroOpsModelTests {
         assert(snapshot.virtualMachines.map(\.id) == [200], "Expected QEMU guests in the VM guide")
     }
 
+    static func proxmoxClusterOutput(node: String) -> String {
+        """
+        __HOST__
+        {"cpu":0.02,"cpuinfo":{"cores":6,"cpus":12,"model":"AMD Ryzen 5 3600"},"memory":{"used":5800000000,"total":16692400128},"rootfs":{"used":5044244480,"total":39520157696},"pveversion":"pve-manager/9.2.11/test"}
+        __GUESTS__
+        [{"vmid":104,"node":"lab","name":"lab-apps","type":"lxc","status":"running"},{"vmid":200,"node":"lab","name":"batocera","type":"qemu","status":"stopped"},{"vmid":111,"node":"pveo2","name":"insight-apps","type":"lxc","status":"running"},{"vmid":112,"node":"pveo2","name":"insight-pool","type":"lxc","status":"running"}]
+        __THERMALS__
+        node_name=\(node)
+        cpu_percent=3
+        cpu_temp=63
+        gpu_name=Radeon Cedar
+        gpu_memory_gb=2
+        gpu_temp=39
+        gpu_driver=radeon
+        gpu_guest=
+        """
+    }
+
+    static func testProxmoxClusterGuestsStayOnTheirOwnNode() {
+        let snapshot = PedroProxmoxSnapshotParser.parse(output: proxmoxClusterOutput(node: "pveo2"), hostName: "pveo2")
+        assert(snapshot.errorMessage == nil)
+        assert(snapshot.host?.name == "pveo2")
+        assert(snapshot.host?.cpuUsagePercent == 3, "Prefer the fresh CPU sample")
+        assert(snapshot.host?.memoryUsagePercent == 35)
+        assert(snapshot.host?.storageUsagePercent == 13)
+        assert(snapshot.host?.gpuName == "Radeon Cedar")
+        assert(snapshot.host?.gpuMemoryGB == 2)
+        assert(snapshot.host?.gpuTemperature == 39)
+        assert(snapshot.containers.map(\.id) == [111, 112])
+        assert(snapshot.virtualMachines.isEmpty, "LAB's VM must not appear on PVE02")
+        let lab = PedroProxmoxSnapshotParser.parse(output: proxmoxClusterOutput(node: "lab"))
+        assert(lab.containers.map(\.id) == [104])
+        assert(lab.virtualMachines.map(\.id) == [200])
+    }
+
+    static func testProxmoxRejectsUnexpectedHost() {
+        let snapshot = PedroProxmoxSnapshotParser.parse(output: proxmoxClusterOutput(node: "lab"), hostName: "pveo2")
+        assert(snapshot.host == nil && snapshot.guests.isEmpty)
+        assert(snapshot.errorMessage?.contains("inesperado") == true, "Never label LAB data as PVE02")
+    }
+
+    static func testProxmoxNodeSwitchKeepsLateResponsesSeparate() {
+        var fleet = PedroProxmoxFleetState()
+        let date = Date(timeIntervalSince1970: 1_791_148_800)
+        let lab = PedroProxmoxSnapshotParser.parse(output: proxmoxClusterOutput(node: "lab"))
+        let pveo2 = PedroProxmoxSnapshotParser.parse(output: proxmoxClusterOutput(node: "pveo2"), hostName: "pveo2")
+        assert(fleet.beginRefresh(for: .lab))
+        assert(!fleet.beginRefresh(for: .lab), "Do not duplicate a node's in-flight SSH probe")
+        fleet.select(.pveo2)
+        assert(fleet.snapshot == .empty && fleet.lastUpdated == nil && !fleet.isLoading)
+        assert(fleet.beginRefresh(for: .pveo2))
+        fleet.finishRefresh(for: .lab, snapshot: lab, at: date)
+        assert(fleet.snapshot == .empty && fleet.isLoading, "Late LAB response must not fill PVE02")
+        fleet.finishRefresh(for: .pveo2, snapshot: pveo2, at: date.addingTimeInterval(1))
+        assert(fleet.snapshot == pveo2 && !fleet.isLoading)
+        assert(fleet.lastUpdated == date.addingTimeInterval(1))
+        fleet.select(.lab)
+        assert(fleet.snapshot == lab && fleet.lastUpdated == date)
+        assert(fleet.beginRefresh(for: .lab))
+        fleet.finishRefresh(for: .lab, snapshot: PedroProxmoxSnapshot(host: nil, guests: [], errorMessage: "Timeout"), at: date.addingTimeInterval(2))
+        assert(fleet.snapshot.host == nil, "An offline node must not keep displaying healthy cached data")
+        assert(fleet.lastUpdated == date && !fleet.isLoading)
+        fleet.select(.pveo2)
+        assert(fleet.snapshot == pveo2, "A LAB failure must not erase PVE02 data")
+    }
+
+    static func testProxmoxSSHTargetUsesDedicatedKey() {
+        let target = PedroProxmoxNode.pveo2.target
+        let arguments = PedroOpsSSHRunner.arguments(for: target, userHome: "/Users/user", identityExists: true, remoteCommand: "printf ok")
+        assert(arguments.contains("/Users/user/.ssh/id_ed25519_secondary"))
+        assert(!arguments.contains("/Users/user/.ssh/id_ed25519"))
+        assert(arguments.contains("IdentitiesOnly=yes"))
+        assert(arguments.suffix(2) == ["root@192.0.2.50", "printf ok"])
+        assert(PedroProxmoxNode.lab.target.identityFileName == nil, "Preserve LAB's existing identity")
+    }
+
     static func testCardContentWidthAccountsForPadding() {
         let width = PedroOpsCardLayout.contentWidth(totalWidth: 120)
 
@@ -980,9 +1065,9 @@ struct PedroOpsModelTests {
     }
 
     static func testCodexUsageReaderUsesRealUserHome() {
-        let path = PedroOpsCodexUsageReader.databasePath(userHome: "/Users/pedro")
+        let path = PedroOpsCodexUsageReader.databasePath(userHome: "/Users/user")
 
-        assert(path == "/Users/pedro/.codex/state_5.sqlite", "Expected Codex usage reader to use the real user home")
+        assert(path == "/Users/user/.codex/state_5.sqlite", "Expected Codex usage reader to use the real user home")
     }
 
     static func testCodexUsageReaderFallsBackFromSandboxHome() {
@@ -1226,23 +1311,23 @@ struct PedroOpsModelTests {
         let target = PedroOpsSSHTarget(id: "truenas", title: "TrueNAS", hostAlias: "user@192.0.2.20", iconName: "externaldrive.fill")
         let arguments = PedroOpsSSHRunner.arguments(
             for: target,
-            userHome: "/Users/pedro",
+            userHome: "/Users/user",
             identityExists: true,
             remoteCommand: "printf ok"
         )
 
         assert(arguments.contains("-i"), "Expected SSH to receive an explicit identity file")
-        assert(arguments.contains("/Users/pedro/.ssh/id_ed25519"), "Expected SSH to use the real user's private key")
+        assert(arguments.contains("/Users/user/.ssh/id_ed25519"), "Expected SSH to use the real user's private key")
         assert(arguments.contains("-o"), "Expected SSH options")
-        assert(arguments.contains("UserKnownHostsFile=/Users/pedro/.ssh/known_hosts"), "Expected SSH to use the real user's known_hosts")
-        assert(arguments.contains("HOME=/Users/pedro") == false, "HOME should be set through process environment, not passed as an SSH arg")
+        assert(arguments.contains("UserKnownHostsFile=/Users/user/.ssh/known_hosts"), "Expected SSH to use the real user's known_hosts")
+        assert(arguments.contains("HOME=/Users/user") == false, "HOME should be set through process environment, not passed as an SSH arg")
     }
 
     static func testAlienwareSSHTargetUsesX99Bridge() {
         let target = PedroOpsSnapshotBuilder.alienwareTarget
         let arguments = PedroOpsSSHRunner.arguments(
             for: target,
-            userHome: "/Users/pedro",
+            userHome: "/Users/user",
             identityExists: true,
             remoteCommand: PedroOpsSSHRunner.alienwareRemoteCommand()
         )

@@ -4,7 +4,8 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 mode="${1:-run}"
 derived=/tmp/boringNotch-pedro-proxmox
 built="$derived/Build/Products/Release/boringNotch.app"
-installed=/Applications/boringNotch.app
+installed="/Applications/Insight Notch.app"
+legacyInstalled=/Applications/boringNotch.app
 prefs="$HOME/Library/Preferences/theboringteam.boringnotch.plist"
 runtime="$HOME/.local/share/pedro-notch"
 backup="$HOME/Library/Application Support/PedroEditionBackups/pre-activity-$(date +%Y%m%d-%H%M%S)"
@@ -20,6 +21,8 @@ if [[ "$mode" != --install-built ]]; then
     -derivedDataPath "$derived" CODE_SIGNING_ALLOWED=NO build
 fi
 test -x "$built/Contents/MacOS/boringNotch"
+# Keep the existing executable/module identity while branding the packaged app.
+/usr/libexec/PlistBuddy -c "Set :CFBundleName Insight Notch" "$built/Contents/Info.plist"
 codesign --force --deep --sign - "$built"
 codesign --verify --deep --strict "$built"
 (cd Integrations && npm ci --omit=optional --ignore-scripts)
@@ -30,31 +33,25 @@ mkdir -p "$runtime" "$HOME/.agents/skills/notch-activity"
 ditto Integrations "$runtime"
 chmod 700 "$runtime"
 ditto Integrations/notch-activity/SKILL.md "$HOME/.agents/skills/notch-activity/SKILL.md"
-pid="$(pgrep -f '^/Applications/boringNotch.app/Contents/MacOS/boringNotch$' || true)"
-if [[ -n "$pid" ]]; then
-  kill -TERM "$pid"
-  for attempt in {1..20}; do
-    kill -0 "$pid" 2>/dev/null || break
-    sleep 0.25
-  done
-  if kill -0 "$pid" 2>/dev/null; then
-    printf 'Finalizando processo antigo apos timeout; preferencias preservadas.\n'
-    kill -KILL "$pid"
-    sleep 1
-  fi
-fi
+/usr/bin/python3 script/repair_launch_services.py --stop-all
 [[ ! -f "$prefs" ]] || ditto "$prefs" "$backup/preferences.plist"
-[[ ! -d "$installed" ]] || mv "$installed" "$backup/boringNotch.app"
+for appPath in "$installed" "$legacyInstalled"; do
+  [[ ! -d "$appPath" ]] || mv "$appPath" "$backup/$(basename "$appPath")"
+done
 if ! ditto "$built" "$installed"; then
   [[ ! -d "$installed" ]] || mv "$installed" "$backup/failed-install.app"
-  [[ ! -d "$backup/boringNotch.app" ]] || ditto "$backup/boringNotch.app" "$installed"
-  open -n "$installed"
+  for appPath in "$installed" "$legacyInstalled"; do
+    previous="$backup/$(basename "$appPath")"
+    [[ ! -d "$previous" ]] || ditto "$previous" "$appPath"
+  done
+  if [[ -d "$installed" ]]; then open -n "$installed"; else open -n "$legacyInstalled"; fi
   exit 1
 fi
 codesign --verify --deep --strict "$installed"
+/usr/bin/python3 script/repair_launch_services.py
 open -n "$installed"
 sleep 2
-pgrep -f '^/Applications/boringNotch.app/Contents/MacOS/boringNotch$' >/dev/null
+pgrep -f '^/Applications/Insight Notch\.app/Contents/MacOS/boringNotch$' >/dev/null
 printf 'Installed; backup: %s\n' "$backup"
 case "$mode" in
   --logs) /usr/bin/log stream --level info --predicate 'process == "boringNotch"' ;;

@@ -63,6 +63,16 @@ artwork_cache/
 claude_cookie.txt
 *cookie*.txt
 
+# Generated integration files and private provisioning
+*.jks
+*.keystore
+*.apk
+*.pyc
+__pycache__/
+*.private.json
+Integrations/battery-availability
+Integrations/AndroidAppIcons/InsightAndroidLauncher
+
 # Build artifacts
 *.ipa
 *.xcarchive

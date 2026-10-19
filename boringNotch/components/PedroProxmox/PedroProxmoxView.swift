@@ -15,7 +15,11 @@ struct PedroProxmoxView: View {
 
     var body: some View {
         VStack(spacing: 7) {
-            sectionPicker
+            HStack(spacing: 8) {
+                nodePicker
+                    .frame(width: 182)
+                sectionPicker
+            }
 
             ZStack(alignment: .topTrailing) {
                 if let error = provider.snapshot.errorMessage, provider.snapshot.host == nil {
@@ -43,6 +47,35 @@ struct PedroProxmoxView: View {
             provider.start()
         }
         .onReceive(refreshTimer) { _ in provider.refresh() }
+        .onDisappear { provider.stop() }
+    }
+
+    private var nodePicker: some View {
+        HStack(spacing: 2) {
+            ForEach(PedroProxmoxNode.allCases) { node in
+                Button {
+                    provider.select(node)
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "server.rack")
+                        Text(node.title)
+                    }
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(provider.selectedNode == node ? .primary : .secondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 26)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(provider.selectedNode == node ? Color.white.opacity(0.13) : .clear)
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Proxmox \(node.title)")
+                .help(node.target.hostAlias)
+            }
+        }
+        .padding(2)
+        .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 7))
     }
 
     private var sectionPicker: some View {
@@ -109,7 +142,7 @@ struct PedroProxmoxView: View {
         VStack(spacing: 5) {
             Image(systemName: section.icon)
                 .font(.system(size: 21, weight: .semibold))
-            Text(section == .virtualMachines ? "Nenhuma VM criada" : "Sem dados nesta guia")
+            Text(provider.isLoading && provider.snapshot.host == nil ? "Carregando \(provider.selectedNode.title)" : section == .virtualMachines ? "Nenhuma VM neste nó" : section == .containers ? "Nenhum CT neste nó" : "Sem dados nesta guia")
                 .font(.system(size: 13, weight: .semibold))
         }
         .foregroundStyle(.secondary)
@@ -121,7 +154,7 @@ struct PedroProxmoxView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(.yellow)
-            Text("Proxmox indisponível")
+            Text("\(provider.selectedNode.title) indisponível")
                 .font(.system(size: 13, weight: .bold))
             Text(message)
                 .font(.system(size: 10.5, weight: .medium))
@@ -139,7 +172,8 @@ struct PedroProxmoxView: View {
                 value: "\(host.cpuUsagePercent)%",
                 detail: "\(host.cpuCores)c/\(host.cpuThreads)t · \(temperatureLabel(host.cpuTemperature))",
                 icon: "cpu.fill",
-                tint: .green
+                tint: .green,
+                help: "\(host.name) · \(host.cpuModel) · \(host.version)"
             ),
             PedroProxmoxHostCard(
                 id: "ram",
@@ -160,10 +194,10 @@ struct PedroProxmoxView: View {
             PedroProxmoxHostCard(
                 id: "gpu",
                 title: "GPU",
-                value: host.gpuName ?? "NVIDIA",
+                value: host.gpuName ?? "--",
                 detail: host.gpuDriver == "vfio-pci"
                     ? (host.gpuGuest ?? "Dedicada a uma VM")
-                    : "\(host.gpuMemoryGB.map { "\($0) GB" } ?? "-- GB") · \(temperatureLabel(host.gpuTemperature))",
+                    : [host.gpuMemoryGB.map { "\($0) GB" }, host.gpuTemperature.map { "\($0)°C" }].compactMap { $0 }.joined(separator: " · "),
                 icon: "display",
                 tint: .mint,
                 stateColor: host.gpuDriver == "vfio-pci" ? .mint : (host.gpuTemperature == nil ? .yellow : .green),

@@ -1,0 +1,17 @@
+[Unit]
+Description=Insight Batteries private device hub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/insight-batteries
+ExecStart=/usr/bin/python3 %h/.local/share/insight-batteries/server.py --bind 192.0.2.10 --port 17874 --allow-source 192.0.2.60 --state %h/.local/share/insight-batteries/batteries.sqlite --keys %h/.local/share/insight-batteries/keys.json
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

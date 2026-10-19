@@ -17,14 +17,15 @@ struct DynamicNotchApp: App {
     @Default(.menubarIcon) var showMenuBarIcon
     @Environment(\.openWindow) var openWindow
     @ObservedObject private var liveActivityManager = PedroLiveActivityManager.shared
+    @AppStorage(PedroDockPreview.enabledKey) private var dockPreviewsEnabled = true
 
     init() {
         disableSoftwareUpdateChecks()
     }
 
     var body: some Scene {
-        MenuBarExtra("boring.notch", systemImage: "sparkle", isInserted: $showMenuBarIcon) {
-            Button("Settings") {
+        MenuBarExtra(isInserted: $showMenuBarIcon) {
+            Button("Configurações do Insight Notch") {
                 SettingsWindowController.shared.showWindow()
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
@@ -41,14 +42,32 @@ struct DynamicNotchApp: App {
                 }
             }
             Divider()
-            Button("Restart Boring Notch") {
+            Toggle("Previews de janelas no Dock", isOn: $dockPreviewsEnabled)
+            Button("Autorizar previews do Dock…") { PedroDockPreview.shared.requestPermissions() }
+            Button("Mixer de áudio") {
+                coordinatorForMixer()
+            }
+            Divider()
+            Button("Reiniciar Insight Notch") {
                 ApplicationRelauncher.restart()
             }
-            Button("Quit", role: .destructive) {
+            Button("Encerrar Insight Notch", role: .destructive) {
                 NSApplication.shared.terminate(self)
             }
             .keyboardShortcut(KeyEquivalent("Q"), modifiers: .command)
+        } label: {
+            Image("InsightEmblem").resizable().scaledToFit().frame(width: 18, height: 18)
+                .background(Color.black, in: RoundedRectangle(cornerRadius: 4))
+                .accessibilityLabel("Insight Notch")
         }
+    }
+
+    private func coordinatorForMixer() {
+        BoringViewCoordinator.shared.currentView = .pedroMixer
+        let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
+        if let id = screen?.displayUUID, let model = appDelegate.viewModels[id] {
+            model.open()
+        } else { appDelegate.vm.open() }
     }
 }
 
@@ -84,6 +103,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        PedroPhoneManager.shared.stopMonitoring()
+        PedroDockPreview.shared.stop()
+        PedroAudioMixer.shared.stop()
+        AgentUsageService.shared.stop()
         PedroAgentMonitor.shared.stop()
         PedroClipboardManager.shared.stop()
         PedroStackProvider.shared.stop()
@@ -107,6 +130,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func onScreenLocked(_ notification: Notification) {
         isScreenLocked = true
+        PedroDockPreview.shared.stop()
+        AgentUsageService.shared.pause()
         if !Defaults[.showOnLockScreen] {
             cleanupWindows()
         } else {
@@ -117,6 +142,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func onScreenUnlocked(_ notification: Notification) {
         isScreenLocked = false
+        PedroDockPreview.shared.start()
+        if AgentUsageService.shared.snapshot.loaded { AgentUsageService.shared.syncWithPreferences() }
         if !Defaults[.showOnLockScreen] {
             adjustWindowPosition(changeAlpha: true)
         } else {
@@ -296,7 +323,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-
+        PedroPhoneNativeNotifications.shared.start()
+        PedroPhoneManager.shared.startMonitoring()
+        PedroDockPreview.shared.start()
+        PedroAudioMixer.shared.startIfEnabled()
         PedroAgentMonitor.shared.start()
         PedroClipboardManager.shared.start()
         PedroLiveActivityManager.shared.start()

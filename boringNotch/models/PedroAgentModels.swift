@@ -3,11 +3,13 @@ import Foundation
 enum PedroAgentProvider: String, Codable, Equatable {
     case claude
     case codex
+    case opencode
 
     var title: String {
         switch self {
         case .claude: return "Claude"
         case .codex: return "Codex"
+        case .opencode: return "OpenCode"
         }
     }
 
@@ -15,6 +17,7 @@ enum PedroAgentProvider: String, Codable, Equatable {
         switch self {
         case .claude: return "sparkles"
         case .codex: return "terminal.fill"
+        case .opencode: return "chevron.left.forwardslash.chevron.right"
         }
     }
 }

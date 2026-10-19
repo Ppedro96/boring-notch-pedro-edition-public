@@ -45,7 +45,7 @@ enum PedroAgentSessionProvider {
         }
 
         return merge(
-            sessions: codexSessions,
+            sessions: codexSessions + openCodeSessions(now: now),
             bridgeEvents: PedroAgentBridge.activeEvents(now: now),
             now: now
         )
@@ -99,6 +99,48 @@ enum PedroAgentSessionProvider {
             return .completed
         }
         return .working
+    }
+
+    static func openCodeSessions(now: Date = Date(), databasePath: String = PedroOpsUserHome.realPath + "/.local/share/opencode/opencode.db") -> [PedroAgentSession] {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(databasePath, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+            sqlite3_close(db); return []
+        }
+        defer { sqlite3_close(db) }
+        sqlite3_busy_timeout(db, 500)
+        let sql = """
+        SELECT s.id, s.title, s.directory, s.time_updated,
+          (SELECT json_extract(m.data, '$.modelID') FROM message m
+           WHERE m.session_id = s.id AND json_valid(m.data) AND json_extract(m.data, '$.role') = 'assistant'
+           ORDER BY m.time_created DESC LIMIT 1),
+          (SELECT json_extract(m.data, '$.time.completed') FROM message m
+           WHERE m.session_id = s.id AND json_valid(m.data) AND json_extract(m.data, '$.role') = 'assistant'
+           ORDER BY m.time_created DESC LIMIT 1)
+        FROM session s WHERE s.parent_id IS NULL AND s.time_updated >= ?
+        ORDER BY s.time_updated DESC LIMIT 15
+        """
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_int64(statement, 1, Int64(now.addingTimeInterval(-7 * 86_400).timeIntervalSince1970 * 1000))
+        func text(_ index: Int32) -> String? {
+            sqlite3_column_text(statement, index).map { String(cString: $0) }
+        }
+        var result: [PedroAgentSession] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            guard let id = text(0) else { continue }
+            let updated = Date(timeIntervalSince1970: Double(sqlite3_column_int64(statement, 3)) / 1000)
+            let completed = sqlite3_column_type(statement, 5) != SQLITE_NULL
+            let recent = now.timeIntervalSince(updated) < 120
+            // Without event hooks, incomplete old replies mean unknown/idle, never a stuck active task.
+            result.append(PedroAgentSession(id: "opencode." + id, provider: .opencode,
+                title: compact(text(1) ?? "", fallback: "Sessão OpenCode"),
+                project: text(2).map { URL(fileURLWithPath: $0).lastPathComponent } ?? "OpenCode",
+                state: recent && text(4) != nil ? (completed ? .completed : .working) : .idle, model: text(4), branch: nil,
+                updatedAt: updated, preview: "Abrir OpenCode · estado observado no histórico local",
+                threadID: id, terminalBundleIdentifier: "ai.opencode.desktop", approval: nil))
+        }
+        return result
     }
 
     private static func applying(

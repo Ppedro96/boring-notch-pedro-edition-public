@@ -74,7 +74,7 @@ final class PedroStackProvider: ObservableObject {
 
     private enum RefreshPart {
         case remote(PedroStackSnapshot?)
-        case vps(PedroStackCard)
+        case production([PedroStackCard])
         case backup([PedroStackCard])
     }
 
@@ -82,27 +82,28 @@ final class PedroStackProvider: ObservableObject {
         guard !isLoading else { return }
         isLoading = true
         Task {
-            var vpsOverride: PedroStackCard?
+            var productionOverride: [PedroStackCard]?
             var backupOverride: [PedroStackCard]?
             await withTaskGroup(of: RefreshPart.self) { group in
                 group.addTask { .remote(await self.fetchRemoteSnapshot()) }
-                group.addTask { .vps(Self.loadVPS1Card()) }
+                group.addTask { .production(Self.loadProductionCards()) }
                 group.addTask { .backup(Self.loadBackupCards()) }
                 for await part in group {
                     var next = snapshot
                     switch part {
                     case .remote(let remote):
                         let previousBackup = next.sections.backup
-                        next = remote ?? next
-                        next.sections.cloud = next.sections.cloud.map { $0.checkingFreshness(feedUnavailable: remote == nil) }
+                        let previousProduction = next.sections.cloud
+                        next = remote.map(Self.localizingFeed) ?? next
+                        next.sections.cloud = productionOverride ?? previousProduction
                         next.sections.core = next.sections.core.map { $0.checkingFreshness(feedUnavailable: remote == nil) }
                         next.sections.operation = next.sections.operation.map { $0.checkingFreshness(feedUnavailable: remote == nil) }
                         next.sections.backup = backupOverride ?? previousBackup
                         errorMessage = remote == nil ? "Feed remoto indisponível" : nil
-                    case .vps(let card): vpsOverride = card
+                    case .production(let cards): productionOverride = cards
                     case .backup(let cards): backupOverride = cards
                     }
-                    if let vpsOverride { next.sections.cloud = Self.replacingVPS1Card(in: next.sections.cloud, with: vpsOverride) }
+                    if let productionOverride { next.sections.cloud = productionOverride }
                     if let backupOverride { next.sections.backup = backupOverride }
                     snapshot = next
                 }
@@ -130,113 +131,90 @@ final class PedroStackProvider: ObservableObject {
         }
     }
 
-    nonisolated private static func loadVPS1Card() -> PedroStackCard {
-        let target = PedroOpsSSHTarget(
-            id: "vps1",
-            title: "VPS1",
-            hostAlias: PedroLocalConfiguration.sshHost("pedro_ssh_vps", fallback: "root@192.0.2.30"),
-            iconName: "server.rack"
-        )
-        return vps1Card(from: PedroOpsSSHRunner().status(for: target))
+    nonisolated static func loadProductionCards() -> [PedroStackCard] {
+        let command = PedroOpsSSHRunner.remoteCommand(for: PedroProxmoxProvider.remoteProbeScript)
+        let result = PedroOpsSSHRunner().status(for: PedroProxmoxNode.pveo2.target, remoteCommand: command)
+        return productionCards(from: result)
     }
 
-    nonisolated static func vps1Card(
+    nonisolated static func productionCards(
         from result: PedroOpsSSHResult,
         now: Date = Date()
-    ) -> PedroStackCard {
-        guard result.isReachable else {
-            return PedroStackCard(
-                id: "cloud.vps1-hostinger-kvm2",
-                title: "VPS1",
-                subtitle: "SSH indisponível",
+    ) -> [PedroStackCard] {
+        let snapshot = result.isReachable
+            ? PedroProxmoxSnapshotParser.parse(output: result.output, hostName: PedroProxmoxNode.pveo2.rawValue)
+            : .empty
+        let targets = [("local.pve02", "PVE02"), ("local.ct111", "CT111 · Apps"), ("local.ct112", "CT112 · POOL")]
+        guard let host = snapshot.host else {
+            return targets.map { id, title in PedroStackCard(
+                id: id,
+                title: title,
+                subtitle: result.isReachable ? "Telemetria indisponível" : "SSH indisponível",
                 state: .warning,
                 icon: "server.rack",
-                metrics: [
-                    PedroStackMetric(label: "RAM", value: "--", unit: "%"),
-                    PedroStackMetric(label: "SSD", value: "--", unit: "%"),
-                    PedroStackMetric(label: "Load", value: "--", unit: nil),
-                ],
+                metrics: productionMetrics(cpu: nil, ram: nil, disk: nil),
                 updatedAt: nil
-            )
+            ) }
         }
 
-        let values = sshValues(from: result.output)
-        let ram = ratioPercent(from: values["memory"])
-        let disk = PedroOpsSnapshotBuilder.metrics(fromSSHOutput: result.output)
-            .first(where: { $0.label == "Disco" })?.progressPercent ?? embeddedPercent(from: values["disk"])
-        let load = values["load"]?
-            .split(whereSeparator: \.isWhitespace)
-            .first
-            .map(String.init)
-
-        return PedroStackCard(
-            id: "cloud.vps1-hostinger-kvm2",
-            title: "VPS1",
-            subtitle: "Online via SSH",
-            state: .active,
+        let hostCard = PedroStackCard(
+            id: "local.pve02",
+            title: "PVE02",
+            subtitle: "Produção local · SSH",
+            state: resourceState(cpu: host.cpuUsagePercent, ram: host.memoryUsagePercent, disk: host.storageUsagePercent),
             icon: "server.rack",
-            metrics: [
-                PedroStackMetric(label: "RAM", value: ram.map(String.init) ?? "--", unit: "%"),
-                PedroStackMetric(label: "SSD", value: disk.map(String.init) ?? "--", unit: "%"),
-                PedroStackMetric(label: "Load", value: load ?? "--", unit: nil),
-            ],
+            metrics: productionMetrics(cpu: host.cpuUsagePercent, ram: host.memoryUsagePercent, disk: host.storageUsagePercent),
             updatedAt: now
         )
+        let containers = [111, 112].map { id -> PedroStackCard in
+            let guest = snapshot.containers.first { $0.id == id }
+            let running = guest?.status == .running
+            let ram = running && (guest?.memoryTotalBytes ?? 0) > 0 ? guest?.memoryUsagePercent : nil
+            let disk = running && (guest?.storageTotalBytes ?? 0) > 0 ? guest?.storageUsagePercent : nil
+            let cpu = running ? guest?.cpuUsagePercent : nil
+            let state: PedroStackState
+            if guest?.status == .stopped {
+                state = .offline
+            } else if ram == nil || disk == nil {
+                state = .warning
+            } else {
+                state = resourceState(cpu: cpu ?? 0, ram: ram ?? 0, disk: disk ?? 0)
+            }
+            return PedroStackCard(
+                id: "local.ct\(id)", title: id == 111 ? "CT111 · Apps" : "CT112 · POOL",
+                subtitle: guest?.status == .stopped ? "Container parado" : running ? "\(guest?.name ?? "") · Local" : "Sem leitura do container",
+                state: state, icon: "shippingbox.fill",
+                metrics: productionMetrics(cpu: cpu, ram: ram, disk: disk), updatedAt: guest == nil ? nil : now
+            )
+        }
+        return [hostCard] + containers
     }
 
-    nonisolated private static func replacingVPS1Card(
-        in cards: [PedroStackCard],
-        with replacement: PedroStackCard
-    ) -> [PedroStackCard] {
-        var next = cards
-        if let index = next.firstIndex(where: {
-            $0.id.localizedCaseInsensitiveContains("vps1") ||
-                $0.title.localizedCaseInsensitiveCompare("VPS1") == .orderedSame
-        }) {
-            next[index] = replacement
-        } else {
-            next.append(replacement)
+    nonisolated private static func productionMetrics(cpu: Int?, ram: Int?, disk: Int?) -> [PedroStackMetric] {
+        [("CPU", cpu), ("RAM", ram), ("Disco", disk)].map { label, value in
+            PedroStackMetric(label: label, value: value.map(String.init) ?? "--", unit: value == nil ? nil : "%")
+        }
+    }
+
+    nonisolated private static func resourceState(cpu: Int, ram: Int, disk: Int) -> PedroStackState {
+        max(cpu, ram, disk) >= 85 ? .warning : .active
+    }
+
+    nonisolated static func localizingFeed(_ feed: PedroStackSnapshot) -> PedroStackSnapshot {
+        var next = feed
+        // Hardware always comes from PVE02 SSH; never restore legacy VPS cards from a feed.
+        next.sections.cloud = []
+        next.sections.core = next.sections.core.map { card in
+            guard card.id == "core.supabase" else { return card }
+            return PedroStackCard(
+                id: card.id, title: card.title, subtitle: "Local · unificado",
+                state: card.state, icon: card.icon,
+                metrics: card.metrics.map { metric in
+                    PedroStackMetric(label: metric.label == "Geral" ? "SaaS" : metric.label, value: metric.value, unit: metric.unit)
+                }, updatedAt: card.updatedAt
+            )
         }
         return next
-    }
-
-    nonisolated private static func sshValues(from output: String) -> [String: String] {
-        Dictionary(
-            uniqueKeysWithValues: output
-                .split(whereSeparator: \.isNewline)
-                .compactMap { line -> (String, String)? in
-                    let parts = line.split(
-                        separator: "=",
-                        maxSplits: 1,
-                        omittingEmptySubsequences: false
-                    )
-                    guard parts.count == 2 else { return nil }
-                    return (String(parts[0]), String(parts[1]))
-                }
-        )
-    }
-
-    nonisolated private static func ratioPercent(from value: String?) -> Int? {
-        guard let value else { return nil }
-        let numbers = value
-            .split(separator: "/")
-            .compactMap { part -> Double? in
-                let numeric = part.filter { $0.isNumber || $0 == "." }
-                return Double(numeric)
-            }
-        guard numbers.count == 2, numbers[1] > 0 else { return nil }
-        return Int((numbers[0] / numbers[1] * 100).rounded())
-    }
-
-    nonisolated private static func embeddedPercent(from value: String?) -> Int? {
-        guard let value,
-              let percent = value.split(whereSeparator: \.isWhitespace).first(where: {
-                  $0.hasSuffix("%")
-              })
-        else {
-            return nil
-        }
-        return Int(percent.dropLast())
     }
 
     nonisolated private static func loadBackupCards() -> [PedroStackCard] {

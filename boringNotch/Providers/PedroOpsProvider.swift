@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import ApplicationServices
 import CoreGraphics
 import SQLite3
 import Darwin
@@ -46,7 +47,7 @@ struct PedroOpsSnapshotBuilder {
             if app.lastFiveHoursDetail != "Sem janela" {
                 metrics.append(
                     PedroOpsMetric(
-                        label: "5h",
+                        label: app.id == "gemini" ? "Atual" : "5h",
                         value: fiveHourValue,
                         detail: app.lastFiveHoursDetail,
                         progressPercent: app.lastFiveHoursProgressPercent,
@@ -760,7 +761,8 @@ extension PedroOpsUsageSnapshot {
     static func from(summaries usageByID: [String: PedroOpsUsageWindowSummary]) -> PedroOpsUsageSnapshot {
         let targets: [(id: String, title: String, bundleIdentifier: String, iconName: String)] = [
             ("claude", "Claude", "com.anthropic.claudefordesktop", "sparkles"),
-            ("codex", "Codex", "com.openai.codex", "terminal.fill")
+            ("codex", "Codex", "com.openai.codex", "terminal.fill"),
+            ("gemini", "Gemini", "com.google.GeminiMacOS", "sparkle")
         ]
         let runningApps = NSWorkspace.shared.runningApplications
         let windowsByPID = Self.visibleWindowCountsByProcessID()
@@ -836,19 +838,24 @@ struct PedroOpsUsageWindowSummary {
     var isStale: Bool = false
     var fiveHourResetsAt: Date? = nil
     var weekResetsAt: Date? = nil
+    var inferUsageAfterReset: Bool = true
 
     func checkingFreshness(observedAt: Date?, now: Date = Date()) -> Self {
         var next = self
         if now.timeIntervalSince(observedAt ?? .distantPast) >= 60 { next.isStale = true }
         if let reset = fiveHourResetsAt, now >= reset {
-            next.lastFiveHoursDisplay = "0%"
-            next.lastFiveHoursProgressPercent = 0
-            next.lastFiveHoursDetail = "Janela renovada"
+            if inferUsageAfterReset {
+                next.lastFiveHoursDisplay = "0%"
+                next.lastFiveHoursProgressPercent = 0
+                next.lastFiveHoursDetail = "Janela renovada"
+            } else { next.isStale = true }
         }
         if let reset = weekResetsAt, now >= reset {
-            next.lastWeekDisplay = "0%"
-            next.lastWeekProgressPercent = 0
-            next.lastWeekDetail = "Janela renovada"
+            if inferUsageAfterReset {
+                next.lastWeekDisplay = "0%"
+                next.lastWeekProgressPercent = 0
+                next.lastWeekDetail = "Janela renovada"
+            } else { next.isStale = true }
         }
         return next
     }
@@ -1002,7 +1009,7 @@ struct PedroOpsCodexLiveRateLimits: Equatable {
 enum PedroOpsCodexAppServerClient {
 
     static let requestPayload = """
-    {"id":1,"method":"initialize","params":{"clientInfo":{"name":"boring-notch-pedro","title":"Boring Notch Pedro","version":"1"},"capabilities":{}}}
+    {"id":1,"method":"initialize","params":{"clientInfo":{"name":"insight-notch","title":"Insight Notch","version":"1"},"capabilities":{}}}
     {"method":"initialized","params":{}}
     {"id":2,"method":"account/rateLimits/read","params":null}
 
@@ -2085,7 +2092,7 @@ struct PedroOpsSSHRunner: PedroOpsSSHRunning {
             outputLock.unlock()
             readers.leave()
         }
-        let deadline = Date().addingTimeInterval(target.id == "proxmox" || target.id == "alienware" ? 15 : 8)
+        let deadline = Date().addingTimeInterval(target.id.hasPrefix("proxmox") || target.id == "alienware" ? 15 : 8)
         while process.isRunning && Date() < deadline {
             Thread.sleep(forTimeInterval: 0.05)
         }
@@ -2126,7 +2133,7 @@ struct PedroOpsSSHRunner: PedroOpsSSHRunning {
         identityExists: Bool? = nil,
         remoteCommand: String = remoteCommand()
     ) -> [String] {
-        let identityPath = userHome + "/.ssh/id_ed25519"
+        let identityPath = userHome + "/.ssh/" + (target.identityFileName ?? "id_ed25519")
         let knownHostsPath = userHome + "/.ssh/known_hosts"
         let shouldUseIdentity = identityExists ?? FileManager.default.fileExists(atPath: identityPath)
         var arguments = [
@@ -3060,5 +3067,105 @@ enum PedroOpsAlertsProvider {
         value.lowercased()
             .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+}
+
+
+/// Reads the Gemini Apps usage RPC through a bounded local helper. No window or
+/// Accessibility dependency; cookies stay in memory and go only to Gemini.
+enum PedroGeminiUsageReader {
+    private static let cacheKey = "pedroGeminiUsageObservation"
+
+    static func summary() -> PedroOpsUsageWindowSummary {
+        let output = directUsageOutput()
+        return summary(output: output, now: Date())
+    }
+
+    static func summary(output: Data?, now: Date, defaults: UserDefaults = .standard) -> PedroOpsUsageWindowSummary {
+        if let output, let observation = rpcObservation(from: output, now: now) {
+            defaults.set(observation, forKey: cacheKey)
+            return summary(observation: observation, now: now, live: true)
+        }
+        guard let cached = defaults.dictionary(forKey: cacheKey),
+              cached["rpc"] as? Bool == true else {
+            return PedroOpsUsageWindowSummary(lastFiveHoursTokens: nil, lastWeekTokens: nil, sessionCount: nil,
+                source: "Gemini · sessão Google do Edge indisponível", lastFiveHoursDetail: "Sem leitura", lastWeekDetail: "Sem leitura", isStale: true)
+        }
+        return summary(observation: cached, now: now, live: false)
+    }
+
+    static func rpcObservation(from data: Data, now: Date) -> [String: Any]? {
+        guard let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              value["ok"] as? Bool == true,
+              let account = value["accountHash"] as? String,
+              account.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+              let observed = value["observedAtEpoch"] as? Double,
+              observed >= now.timeIntervalSince1970 - 60, observed <= now.timeIntervalSince1970 + 5,
+              let current = value["current"] as? [String: Any], let week = value["weekly"] as? [String: Any],
+              let currentPercent = current["usedPercent"] as? Int, (0...100).contains(currentPercent),
+              let weekPercent = week["usedPercent"] as? Int, (0...100).contains(weekPercent),
+              let currentReset = current["resetsAtEpoch"] as? Double, currentReset > observed,
+              let weekReset = week["resetsAtEpoch"] as? Double, weekReset > observed else { return nil }
+        return ["rpc": true, "accountHash": account, "observed": observed,
+                "current": currentPercent, "week": weekPercent,
+                "currentResetEpoch": currentReset, "weekResetEpoch": weekReset]
+    }
+
+    private static func directUsageOutput() -> Data? {
+        guard let helper = PedroOpsUserHome.existingHomeRelativePath("/.local/share/pedro-notch/gemini-apps-usage.py") else { return nil }
+        let process = Process(), pipe = Pipe(), completion = DispatchSemaphore(value: 0)
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.arguments = [helper]
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        process.terminationHandler = { _ in completion.signal() }
+        do { try process.run() } catch { return nil }
+        guard completion.wait(timeout: .now() + 30) == .success else {
+            process.terminate()
+            return nil
+        }
+        guard process.terminationStatus == 0 else { return nil }
+        return try? pipe.fileHandleForReading.read(upToCount: 16_384)
+    }
+
+    // Retained only for legacy AX fixtures, never used for live readings.
+    static func parse(strings: [String], now: Date) -> [String: Any]? {
+        let text = strings.joined(separator: "\n")
+        guard text.contains("Limite semanal") || text.contains("Weekly limit") else { return nil }
+        let pattern = "(?:Cota usada|Quota used|Used quota):\\s*(\\d{1,3})%"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
+        let windows = text.components(separatedBy: text.contains("Limite semanal") ? "Limite semanal" : "Weekly limit")
+        func percent(_ part: String) -> Int? {
+            let ns = part as NSString
+            guard let match = regex.firstMatch(in: part, range: NSRange(location: 0, length: ns.length)),
+                  let value = Int(ns.substring(with: match.range(at: 1))), (0...100).contains(value) else { return nil }
+            return value
+        }
+        guard windows.count >= 2, let current = percent(windows[0]), let week = percent(windows.dropFirst().joined(separator: " ")) else { return nil }
+        func resetDescription(_ part: String) -> String {
+            part.components(separatedBy: .newlines).filter {
+                $0.contains("redefinido") || $0.localizedCaseInsensitiveContains("resets")
+            }.joined(separator: " ").components(separatedBy: "Cota usada")[0]
+                .trimmingCharacters(in: .whitespaces)
+        }
+        let currentReset = resetDescription(windows[0])
+        let weekReset = resetDescription(windows.dropFirst().joined(separator: " "))
+        return ["current": current, "week": week, "currentReset": currentReset,
+                "weekReset": weekReset, "observed": now.timeIntervalSince1970]
+    }
+
+    private static func summary(observation: [String: Any], now: Date, live: Bool) -> PedroOpsUsageWindowSummary {
+        let current = observation["current"] as? Int, week = observation["week"] as? Int
+        let observed = Date(timeIntervalSince1970: observation["observed"] as? Double ?? 0)
+        let currentReset = (observation["currentResetEpoch"] as? Double).map(Date.init(timeIntervalSince1970:))
+        let weekReset = (observation["weekResetEpoch"] as? Double).map(Date.init(timeIntervalSince1970:))
+        return PedroOpsUsageWindowSummary(lastFiveHoursTokens: nil, lastWeekTokens: nil, sessionCount: nil,
+            source: "Gemini Apps · uso da conta · " + observed.formatted(date: .omitted, time: .shortened),
+            lastFiveHoursDisplay: current.map { "\($0)%" }, lastWeekDisplay: week.map { "\($0)%" },
+            lastFiveHoursDetail: currentReset.map { "Renova " + $0.formatted(date: .omitted, time: .shortened) },
+            lastWeekDetail: weekReset.map { "Renova " + $0.formatted(.dateTime.day().month(.abbreviated).hour().minute()) },
+            lastFiveHoursProgressPercent: current, lastWeekProgressPercent: week,
+            isStale: !live || now.timeIntervalSince(observed) >= 60,
+            fiveHourResetsAt: currentReset, weekResetsAt: weekReset, inferUsageAfterReset: false)
     }
 }

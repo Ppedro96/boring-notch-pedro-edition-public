@@ -14,6 +14,11 @@ final class PedroOpsNetworkProvider: ObservableObject {
     @Published private(set) var summaries: [String: PedroOpsUsageWindowSummary]
     @Published private(set) var sshResults: [String: PedroOpsSSHResult] = [:]
     @Published private(set) var pending = Set<String>()
+    @Published private(set) var usageLimitAlerts: [InsightUsageLimitAlert] = []
+    private var usageLimitTracker: InsightUsageLimitTracker
+    private let alertDefaults: UserDefaults
+    private static let alertsKey = "insightUsageLimitEpisodes.v1"
+    private var usageTimer: Timer?
     private var lastAttempt: [String: Date] = [:]
     private var observedAt: [String: Date] = [:]
     private let loader: (String) async -> Reading
@@ -24,8 +29,12 @@ final class PedroOpsNetworkProvider: ObservableObject {
     init(
         cachedSummaries: [String: PedroOpsUsageWindowSummary]? = nil,
         now: @escaping () -> Date = Date.init,
+        alertDefaults: UserDefaults = .standard,
         loader: ((String) async -> Reading)? = nil
     ) {
+        self.alertDefaults = alertDefaults
+        usageLimitTracker = alertDefaults.data(forKey: Self.alertsKey)
+            .flatMap { try? JSONDecoder().decode(InsightUsageLimitTracker.self, from: $0) } ?? InsightUsageLimitTracker()
         self.now = now
         self.loader = loader ?? Self.load
         summaries = cachedSummaries ?? PedroOpsClaudeUsageReader.cachedSummary().map { ["claude": $0] } ?? [:]
@@ -59,8 +68,38 @@ final class PedroOpsNetworkProvider: ObservableObject {
         }
     }
 
+    func startUsageMonitoring() {
+        guard usageTimer == nil else { return }
+        refreshUsage()
+        usageTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refreshUsage() }
+        }
+    }
+
+    func stopUsageMonitoring() {
+        usageTimer?.invalidate()
+        usageTimer = nil
+    }
+
+    private func processUsageLimits(id: String, summary: PedroOpsUsageWindowSummary) {
+        let previous = usageLimitTracker.episodes
+        let readings: [(String, Int?, PedroOpsMetricProgressStyle, Date?)] = [
+            ("current", summary.lastFiveHoursProgressPercent, summary.lastFiveHoursProgressStyle, summary.fiveHourResetsAt),
+            ("week", summary.lastWeekProgressPercent, summary.lastWeekProgressStyle, summary.weekResetsAt)
+        ]
+        let alerts = readings.compactMap { window, percent, style, reset in
+            usageLimitTracker.observe(providerID: id, window: window, percent: percent,
+                                      style: style, resetsAt: reset, isStale: summary.isStale, now: now())
+        }
+        if previous != usageLimitTracker.episodes,
+           let data = try? JSONEncoder().encode(usageLimitTracker) {
+            alertDefaults.set(data, forKey: Self.alertsKey)
+        }
+        if !alerts.isEmpty { usageLimitAlerts = alerts }
+    }
+
     func refreshUsage() {
-        for id in ["claude", "codex"] { refresh(key: "usage." + id, interval: 60) }
+        for id in ["claude", "codex", "gemini"] { refresh(key: "usage." + id, interval: 60) }
     }
 
     func refreshStatus(targets: [PedroOpsSSHTarget]) {
@@ -85,6 +124,7 @@ final class PedroOpsNetworkProvider: ObservableObject {
                 }
                 summaries[id] = summary
                 if !summary.isStale { observedAt[key] = now() }
+                processUsageLimits(id: id, summary: summary)
             case .ssh(let result):
                 sshResults[String(key.dropFirst("ssh.".count))] = result
                 observedAt[key] = now()
@@ -98,7 +138,14 @@ final class PedroOpsNetworkProvider: ObservableObject {
         await Task.detached(priority: .userInitiated) {
             switch key {
             case "usage.claude":
-                return .usage(PedroOpsClaudeUsageReader.summary(includeSessionCounts: false))
+                let api = PedroOpsClaudeUsageReader.summary(includeSessionCounts: false)
+                if api.isStale, let local = PedroClaudeLocalFallback.summary(),
+                   !local.isStale || api.lastWeekProgressPercent == nil {
+                    return .usage(local)
+                }
+                return .usage(api)
+            case "usage.gemini":
+                return .usage(PedroGeminiUsageReader.summary())
             case "usage.codex":
                 return .usage(PedroOpsCodexUsageReader.summary(appServerOutput: PedroOpsCodexAppServerClient.fetch()))
             default:

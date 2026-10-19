@@ -10,7 +10,10 @@ struct PedroClipboardStackTests {
         testStackSectionsKeepExpectedOrder()
         testStackFreshnessDoesNotPretendOffline()
         testFinishedBackupTasksStayActiveWithoutNewRootSnapshot()
-        testPrimarySSHCardUsesCorrectVPS1Identity()
+        testPrimarySSHCardsUseLocalProduction()
+        testLocalProductionNeverFallsBackToVPS()
+        testLocalProductionDistinguishesStoppedAndMissingContainers()
+        testLocalFeedDropsLegacyHostsAndKeepsOperationalData()
         testLiveActivityQueuePrefersHigherPriority()
         testLiveActivityQueueDeduplicatesUnchangedState()
         testLiveActivityQueueReopensWhenStateChanges()
@@ -152,8 +155,10 @@ struct PedroClipboardStackTests {
     static func testStackSectionsKeepExpectedOrder() {
         assert(
             PedroStackSection.allCases == [.cloud, .core, .operation, .backup],
-            "Stack segments should remain Cloud, Core, Operação and Backup"
+            "Stack segments should keep the existing order"
         )
+        assert(PedroStackSection.cloud.title == "Local")
+        assert(PedroStackSection.cloud.icon == "server.rack")
         assert(PedroStackSection.operation.title == "Operação", "Operation should keep its Portuguese label")
     }
 
@@ -174,31 +179,77 @@ struct PedroClipboardStackTests {
         )
     }
 
-    static func testPrimarySSHCardUsesCorrectVPS1Identity() {
+    static let productionOutput = """
+    __HOST__
+    {"cpu":0.02,"cpuinfo":{"cores":6,"cpus":12,"model":"AMD Ryzen 5 3600"},"memory":{"used":5800000000,"total":16692400128},"rootfs":{"used":5044244480,"total":39520157696}}
+    __GUESTS__
+    [{"vmid":104,"node":"lab","name":"lab-apps","type":"lxc","status":"running","maxmem":8000,"mem":4000,"maxdisk":10000,"disk":1000},{"vmid":111,"node":"pveo2","name":"insight-apps","type":"lxc","status":"running","cpu":0.04,"maxmem":12000,"mem":6000,"maxdisk":10000,"disk":3500},{"vmid":112,"node":"pveo2","name":"insight-pool","type":"lxc","status":"running","cpu":0.01,"maxmem":2000,"mem":500,"maxdisk":10000,"disk":2600}]
+    __THERMALS__
+    node_name=pveo2
+    cpu_percent=3
+    """
+
+    static func testPrimarySSHCardsUseLocalProduction() {
         let result = PedroOpsSSHResult(
-            hostID: "vps1",
+            hostID: "proxmox-pveo2",
             isReachable: true,
-            output: """
-            hostname=srv635058
-            uptime=03:52:46 up 15 days, 17:05
-            load=0.17 0.16 0.17
-            memory=4.6GB / 33.7GB
-            disk=0.1/0.4 TB 17% used
-            temp=
-            """,
+            output: productionOutput,
             errorMessage: nil
         )
-
-        let card = PedroStackProvider.vps1Card(
+        let now = Date(timeIntervalSince1970: 1_784_718_000)
+        let cards = PedroStackProvider.productionCards(
             from: result,
-            now: Date(timeIntervalSince1970: 1_784_718_000)
+            now: now
         )
+        assert(cards.map(\.id) == ["local.pve02", "local.ct111", "local.ct112"])
+        assert(cards.map(\.title) == ["PVE02", "CT111 · Apps", "CT112 · POOL"])
+        assert(cards.allSatisfy { $0.state == .active && $0.updatedAt == now })
+        assert(cards[0].metrics.map(\.displayValue) == ["3%", "35%", "13%"])
+        assert(cards[1].metrics.map(\.displayValue) == ["4%", "50%", "35%"])
+        assert(cards[2].metrics.map(\.displayValue) == ["1%", "25%", "26%"])
+        assert(cards.allSatisfy { $0.metrics.map(\.label) == ["CPU", "RAM", "Disco"] })
+        assert(PedroProxmoxNode.pveo2.target.sshHostAlias == "root@192.0.2.50")
+        assert(PedroProxmoxNode.pveo2.target.identityFileName == "id_ed25519_secondary")
+    }
 
-        assert(card.id == "cloud.vps1-hostinger-kvm2", "The primary host should replace the VPS1 feed card")
-        assert(card.title == "VPS1", "Hostinger VM 635058 should be labeled VPS1")
-        assert(card.state == .active, "A reachable VPS1 should be active")
-        assert(card.subtitle == "Online via SSH", "The card should identify the live SSH source")
-        assert(card.metrics.map(\.displayValue) == ["14%", "17%", "0.17"], "VPS1 should expose RAM, SSD and load")
+    static func testLocalProductionNeverFallsBackToVPS() {
+        for result in [
+            PedroOpsSSHResult(hostID: "proxmox-pveo2", isReachable: false, output: "", errorMessage: "Timeout"),
+            PedroOpsSSHResult(hostID: "proxmox-pveo2", isReachable: true, output: "hostname=old-vps", errorMessage: nil),
+            PedroOpsSSHResult(hostID: "proxmox-pveo2", isReachable: true, output: productionOutput.replacingOccurrences(of: "node_name=pveo2", with: "node_name=lab"), errorMessage: nil)
+        ] {
+            let cards = PedroStackProvider.productionCards(from: result)
+            assert(cards.map(\.id) == ["local.pve02", "local.ct111", "local.ct112"])
+            assert(cards.allSatisfy { $0.state == .warning && $0.updatedAt == nil })
+            assert(cards.allSatisfy { $0.metrics.allSatisfy { $0.displayValue == "--" } })
+        }
+    }
+
+    static func testLocalProductionDistinguishesStoppedAndMissingContainers() {
+        let stopped = productionOutput.replacingOccurrences(of: "\"name\":\"insight-apps\",\"type\":\"lxc\",\"status\":\"running\"", with: "\"name\":\"insight-apps\",\"type\":\"lxc\",\"status\":\"stopped\"")
+        let cards = PedroStackProvider.productionCards(from: PedroOpsSSHResult(hostID: "proxmox-pveo2", isReachable: true, output: stopped, errorMessage: nil))
+        assert(cards[1].state == .offline && cards[1].subtitle == "Container parado")
+        assert(cards[1].metrics.allSatisfy { $0.displayValue == "--" })
+        assert(cards[0].state == .active && cards[2].state == .active)
+        let missing = productionOutput.replacingOccurrences(of: "\"vmid\":111", with: "\"vmid\":114")
+        let partial = PedroStackProvider.productionCards(from: PedroOpsSSHResult(hostID: "proxmox-pveo2", isReachable: true, output: missing, errorMessage: nil))
+        assert(partial[1].state == .warning && partial[1].updatedAt == nil)
+        let full = productionOutput.replacingOccurrences(of: "\"disk\":3500", with: "\"disk\":9000")
+        let pressure = PedroStackProvider.productionCards(from: PedroOpsSSHResult(hostID: "proxmox-pveo2", isReachable: true, output: full, errorMessage: nil))
+        assert(pressure[1].state == .warning, "Warn about actual local resource pressure")
+    }
+
+    static func testLocalFeedDropsLegacyHostsAndKeepsOperationalData() {
+        let legacy = PedroStackCard(id: "cloud.vps1", title: "VPS1", subtitle: "Online", state: .active, icon: "cloud.fill", metrics: [], updatedAt: Date())
+        let supabase = PedroStackCard(id: "core.supabase", title: "Supabase", subtitle: "2/2 projetos online", state: .offline, icon: "cylinder.split.1x2.fill", metrics: [PedroStackMetric(label: "Geral", value: "Offline", unit: nil), PedroStackMetric(label: "POOL", value: "Offline", unit: nil)], updatedAt: Date())
+        let wpp = PedroStackCard(id: "operation.wpp", title: "WPP SaaS", subtitle: "1/5 conectadas", state: .active, icon: "message.fill", metrics: [], updatedAt: Date())
+        let feed = PedroStackSnapshot(generatedAt: Date(), sections: PedroStackSections(cloud: [legacy], core: [supabase], operation: [wpp], backup: []), sourceHealth: .unavailable)
+        let local = PedroStackProvider.localizingFeed(feed)
+        assert(local.sections.cloud.isEmpty, "Never republish feed hardware cards, even if SSH arrives later")
+        assert(local.sections.operation == feed.sections.operation && local.sourceHealth == feed.sourceHealth)
+        assert(local.sections.core[0].subtitle == "Local · unificado")
+        assert(local.sections.core[0].metrics.map(\.label) == ["SaaS", "POOL"])
+        assert(local.sections.core[0].state == .offline, "Local labels must not manufacture healthy status")
     }
 
     static func testLiveActivityQueuePrefersHigherPriority() {

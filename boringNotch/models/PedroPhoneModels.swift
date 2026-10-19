@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import CryptoKit
 
 struct PedroPhoneNotification: Decodable, Identifiable, Equatable {
@@ -6,10 +7,23 @@ struct PedroPhoneNotification: Decodable, Identifiable, Equatable {
     let app: String
     let title: String
     let text: String
+    var replyID: String? = nil
+    var silent: Bool? = nil
+    var canReply: Bool { !(replyID ?? "").isEmpty }
     func fingerprint(deviceID: String) -> String {
         SHA256.hash(data: Data([deviceID, id, app, title, text].joined(separator: "\u{0}").utf8))
             .map { String(format: "%02x", $0) }.joined()
     }
+}
+
+struct PedroPhoneMedia: Decodable, Equatable {
+    let players: [String]
+    let player: String
+    let title: String
+    let artist: String
+    let playing: Bool
+    let artwork: String?
+    var isAvailable: Bool { !players.isEmpty && !player.isEmpty }
 }
 
 struct PedroPhone: Decodable, Identifiable, Equatable {
@@ -25,6 +39,12 @@ struct PedroPhone: Decodable, Identifiable, Equatable {
     let canShare: Bool
     let canShareFiles: Bool
     let via: String?
+    var media: PedroPhoneMedia? = nil
+    var disconnected: PedroPhone {
+        PedroPhone(id: id, name: name, paired: paired, reachable: false, charge: nil, charging: false,
+                   notifications: [], notificationsAvailable: false, canRing: false, canShare: false,
+                   canShareFiles: canShareFiles, via: via, media: nil)
+    }
     var isConnected: Bool { paired && reachable }
     var tabName: String {
         let prefix = "Galaxy "
@@ -133,7 +153,7 @@ final class PedroPhoneTransferProcess: @unchecked Sendable {
 }
 
 enum PedroPhoneBridge {
-    static func run(_ arguments: [String]) -> Data {
+    static func run(_ arguments: [String], input: Data? = nil) -> Data {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let script = home.appendingPathComponent(".local/share/pedro-notch/kde-phone.cjs")
         guard FileManager.default.fileExists(atPath: script.path) else {
@@ -145,8 +165,14 @@ enum PedroPhoneBridge {
         process.arguments = [script.path] + arguments
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
+        let inputPipe = input.map { _ in Pipe() }
+        process.standardInput = inputPipe ?? Pipe()
         do { try process.run() } catch {
             return Data("{\"error\":\"Nao foi possivel iniciar a integracao\"}".utf8)
+        }
+        if let input, let inputPipe {
+            try? inputPipe.fileHandleForWriting.write(contentsOf: input)
+            try? inputPipe.fileHandleForWriting.close()
         }
         // Read while the helper runs, so a notification batch cannot fill the pipe.
         DispatchQueue.global().asyncAfter(deadline: .now() + 9) {
@@ -155,5 +181,44 @@ enum PedroPhoneBridge {
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         return data
+    }
+}
+
+/// Baselines each device without replaying its old inbox on launch/reconnect.
+struct PedroPhoneNotificationLedger {
+    private var initialized: Set<String> = []
+    private var seen: [String: Set<String>] = [:]
+    mutating func additions(_ phone: PedroPhone) -> [PedroPhoneNotification] {
+        guard phone.isConnected else { return [] }
+        let previous = seen[phone.id] ?? []
+        let current = Set(phone.notifications.map { $0.fingerprint(deviceID: phone.id) })
+        seen[phone.id] = previous.union(current)
+        if seen[phone.id, default: []].count > 2000 { seen[phone.id] = current }
+        guard initialized.insert(phone.id).inserted == false else { return [] }
+        return phone.notifications.filter { !previous.contains($0.fingerprint(deviceID: phone.id)) && $0.silent != true }
+    }
+}
+
+
+/// Short-lived action result; replacing it cancels the prior dismissal deadline.
+@MainActor
+final class PedroPhoneFeedback: ObservableObject {
+    @Published private(set) var message: String?
+    private var expiration: Task<Void, Never>?
+
+    func show(_ message: String, duration: Duration = .seconds(4)) {
+        expiration?.cancel()
+        self.message = message
+        expiration = Task { [weak self] in
+            do { try await Task.sleep(for: duration) } catch { return }
+            guard !Task.isCancelled else { return }
+            self?.message = nil
+        }
+    }
+
+    func dismiss() {
+        expiration?.cancel()
+        expiration = nil
+        message = nil
     }
 }

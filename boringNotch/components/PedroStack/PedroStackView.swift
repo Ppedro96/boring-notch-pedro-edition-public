@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 struct PedroStackView: View {
@@ -82,7 +83,7 @@ struct PedroStackView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 5)
                         .fill(stateColor(card.state).opacity(0.17))
-                    Image(systemName: card.icon)
+                    Image(systemName: card.displayIcon)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(stateColor(card.state))
                 }

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DFDF00102F100100000000002 /* PedroDeskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFDF00102F100100000000001; };
 		C0DF00002F100100000000002 /* PedroActivityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DF00002F100100000000001 /* PedroActivityModels.swift */; };
 		C0DF00002F100100000000004 /* PedroActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DF00002F100100000000003 /* PedroActivityManager.swift */; };
 		C0DF00002F100100000000006 /* PedroTransferService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DF00002F100100000000005 /* PedroTransferService.swift */; };
@@ -179,6 +180,30 @@
 		C0DE00332F09060000000033 /* PedroCaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE00322F09060000000032 /* PedroCaptureManager.swift */; };
 		C0DE00352F09060000000035 /* PedroActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE00342F09060000000034 /* PedroActionsView.swift */; };
 		C0DE00372F09060000000037 /* PedroCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE00362F09060000000036 /* PedroCaptureView.swift */; };
+		F544362647701C28AE172689 /* AgentPricing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62274E1A46BFD45F296A62DE /* AgentPricing.swift */; };
+		70F3D7AFA2BB38EEF0DA1B9F /* PedroUsageSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15DEB5D95002F8A0712B759 /* PedroUsageSupport.swift */; };
+		089465FBBD43252208A869B8 /* AgentClaudeAppUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6B73649C19683B097A3BE38 /* AgentClaudeAppUsage.swift */; };
+		25A528429ABAAB234FD0F58A /* PedroClaudeLocalFallback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 925CC06BC5E91A4BBBEDBF41 /* PedroClaudeLocalFallback.swift */; };
+		478FFD1DC44B18B90C6BA581 /* AgentUsageArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECD20807C60B192C14E9DB08 /* AgentUsageArchive.swift */; };
+		43783DC709AA19DE32A5B144 /* AgentLogParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A4AAD2B53F4113B00728D88 /* AgentLogParser.swift */; };
+		56FA67D2FD816D9A3950A134 /* AgentUsageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D88D40923BDDF6C364DF8082 /* AgentUsageService.swift */; };
+		65128CF42DF18AD14B748E84 /* AgentUsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1E453570BFDBB8061683C2E /* AgentUsageModels.swift */; };
+		9527DE05C378F0EE9347F2B9 /* AgentPriceSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A658F2CFAC75D5006AEB0B5 /* AgentPriceSource.swift */; };
+		EB7BC31B8D10E267D4AC9C16 /* AgentUsageSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = B171931F97E71BAEA7ACBDF6 /* AgentUsageSummary.swift */; };
+		D355E4A3264C4E2080C8DD63 /* AgentUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254CA84CDACC5C2FBF98C316 /* AgentUsageStore.swift */; };
+		CBFA1719C038201D7F0CE4A7 /* AgentOpenCodeReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A0AE5134FB0439A3A21C4BE /* AgentOpenCodeReader.swift */; };
+		2AB21CD99D15DAD5E7FB9771 /* PrivateFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB341074AA99BB94AB60C629 /* PrivateFileStore.swift */; };
+		9405A917E03FB497CF00C80B /* PedroDockPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7940FDCD5235694A4D1DE46C /* PedroDockPreview.swift */; };
+		B2988C5D9DAC33B6B45A4967 /* PedroAudioMixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D466DD060ABBD46B34736A0 /* PedroAudioMixer.swift */; };
+		36587BD71191BF69595EFC98 /* PedroMixerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93910091192DAA3A6E6CA07C /* PedroMixerEngine.swift */; };
+		D4BD5EE045E9167D4177EF2E /* MixerRender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 663E2FCCDCA997AB12C7B28D /* MixerRender.swift */; };
+		8552E99BB482988A13F52D93 /* BoostLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A80011076DE706D3814E6DF /* BoostLimiter.swift */; };
+		1BB711C4D223E11D0C09AA54 /* PedroMixerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E15C7ABA55B46E28A1EE259 /* PedroMixerView.swift */; };
+		3B08C369207487FFE5A95A46 /* PedroUsageHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F375F94F2B985FEFCF647D16 /* PedroUsageHistoryView.swift */; };
+		C3ABD8C5A73B1A3D7BBC781C /* agent-prices.json in Resources */ = {isa = PBXBuildFile; fileRef = 3793450EFE171F5AB94F449C /* agent-prices.json */; };
+		C0DF20261019000200000000 /* PedroPhoneObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DF20261019000100000000 /* PedroPhoneObserver.swift */; };
+		C0DF20261019000200000001 /* PedroPhoneNativeNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DF20261019000100000001 /* PedroPhoneNativeNotifications.swift */; };
+		C0DF20261019000200000002 /* PedroPhoneMediaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DF20261019000100000002 /* PedroPhoneMediaView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -217,6 +242,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		DFDF00102F100100000000001 /* PedroDeskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroDeskView.swift; sourceTree = "<group>"; };
 		C0DF00002F100100000000001 /* PedroActivityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroActivityModels.swift; sourceTree = "<group>"; };
 		C0DF00002F100100000000003 /* PedroActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroActivityManager.swift; sourceTree = "<group>"; };
 		C0DF00002F100100000000005 /* PedroTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroTransferService.swift; sourceTree = "<group>"; };
@@ -381,6 +407,30 @@
 		C0DE00322F09060000000032 /* PedroCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroCaptureManager.swift; sourceTree = "<group>"; };
 		C0DE00342F09060000000034 /* PedroActionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroActionsView.swift; sourceTree = "<group>"; };
 		C0DE00362F09060000000036 /* PedroCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroCaptureView.swift; sourceTree = "<group>"; };
+		62274E1A46BFD45F296A62DE /* AgentPricing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/AgentPricing.swift"; sourceTree = SOURCE_ROOT; };
+		A15DEB5D95002F8A0712B759 /* PedroUsageSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/PedroUsageSupport.swift"; sourceTree = SOURCE_ROOT; };
+		E6B73649C19683B097A3BE38 /* AgentClaudeAppUsage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/AgentClaudeAppUsage.swift"; sourceTree = SOURCE_ROOT; };
+		925CC06BC5E91A4BBBEDBF41 /* PedroClaudeLocalFallback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/PedroClaudeLocalFallback.swift"; sourceTree = SOURCE_ROOT; };
+		ECD20807C60B192C14E9DB08 /* AgentUsageArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/AgentUsageArchive.swift"; sourceTree = SOURCE_ROOT; };
+		3A4AAD2B53F4113B00728D88 /* AgentLogParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/AgentLogParser.swift"; sourceTree = SOURCE_ROOT; };
+		D88D40923BDDF6C364DF8082 /* AgentUsageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/AgentUsageService.swift"; sourceTree = SOURCE_ROOT; };
+		F1E453570BFDBB8061683C2E /* AgentUsageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/AgentUsageModels.swift"; sourceTree = SOURCE_ROOT; };
+		3A658F2CFAC75D5006AEB0B5 /* AgentPriceSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/AgentPriceSource.swift"; sourceTree = SOURCE_ROOT; };
+		B171931F97E71BAEA7ACBDF6 /* AgentUsageSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/AgentUsageSummary.swift"; sourceTree = SOURCE_ROOT; };
+		254CA84CDACC5C2FBF98C316 /* AgentUsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/AgentUsageStore.swift"; sourceTree = SOURCE_ROOT; };
+		6A0AE5134FB0439A3A21C4BE /* AgentOpenCodeReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/AgentOpenCodeReader.swift"; sourceTree = SOURCE_ROOT; };
+		CB341074AA99BB94AB60C629 /* PrivateFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/AgentUsage/PrivateFileStore.swift"; sourceTree = SOURCE_ROOT; };
+		7940FDCD5235694A4D1DE46C /* PedroDockPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/PedroDockPreview.swift"; sourceTree = SOURCE_ROOT; };
+		2D466DD060ABBD46B34736A0 /* PedroAudioMixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/PedroAudioMixer.swift"; sourceTree = SOURCE_ROOT; };
+		93910091192DAA3A6E6CA07C /* PedroMixerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/PedroMixerEngine.swift"; sourceTree = SOURCE_ROOT; };
+		663E2FCCDCA997AB12C7B28D /* MixerRender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/MixerRender.swift"; sourceTree = SOURCE_ROOT; };
+		2A80011076DE706D3814E6DF /* BoostLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/Providers/BoostLimiter.swift"; sourceTree = SOURCE_ROOT; };
+		0E15C7ABA55B46E28A1EE259 /* PedroMixerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/components/QuickTools/PedroMixerView.swift"; sourceTree = SOURCE_ROOT; };
+		F375F94F2B985FEFCF647D16 /* PedroUsageHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "boringNotch/components/PedroOps/PedroUsageHistoryView.swift"; sourceTree = SOURCE_ROOT; };
+		3793450EFE171F5AB94F449C /* agent-prices.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "boringNotch/agent-prices.json"; sourceTree = SOURCE_ROOT; };
+		C0DF20261019000100000000 /* PedroPhoneObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroPhoneObserver.swift; sourceTree = "<group>"; };
+		C0DF20261019000100000001 /* PedroPhoneNativeNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroPhoneNativeNotifications.swift; sourceTree = "<group>"; };
+		C0DF20261019000100000002 /* PedroPhoneMediaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroPhoneMediaView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -510,6 +560,27 @@
 		116398942DF5D6B40052E6AF /* Providers */ = {
 			isa = PBXGroup;
 			children = (
+				62274E1A46BFD45F296A62DE /* AgentPricing.swift */,
+				A15DEB5D95002F8A0712B759 /* PedroUsageSupport.swift */,
+				E6B73649C19683B097A3BE38 /* AgentClaudeAppUsage.swift */,
+				925CC06BC5E91A4BBBEDBF41 /* PedroClaudeLocalFallback.swift */,
+				ECD20807C60B192C14E9DB08 /* AgentUsageArchive.swift */,
+				3A4AAD2B53F4113B00728D88 /* AgentLogParser.swift */,
+				D88D40923BDDF6C364DF8082 /* AgentUsageService.swift */,
+				F1E453570BFDBB8061683C2E /* AgentUsageModels.swift */,
+				3A658F2CFAC75D5006AEB0B5 /* AgentPriceSource.swift */,
+				B171931F97E71BAEA7ACBDF6 /* AgentUsageSummary.swift */,
+				254CA84CDACC5C2FBF98C316 /* AgentUsageStore.swift */,
+				6A0AE5134FB0439A3A21C4BE /* AgentOpenCodeReader.swift */,
+				CB341074AA99BB94AB60C629 /* PrivateFileStore.swift */,
+				7940FDCD5235694A4D1DE46C /* PedroDockPreview.swift */,
+				2D466DD060ABBD46B34736A0 /* PedroAudioMixer.swift */,
+				93910091192DAA3A6E6CA07C /* PedroMixerEngine.swift */,
+				663E2FCCDCA997AB12C7B28D /* MixerRender.swift */,
+				2A80011076DE706D3814E6DF /* BoostLimiter.swift */,
+				0E15C7ABA55B46E28A1EE259 /* PedroMixerView.swift */,
+				F375F94F2B985FEFCF647D16 /* PedroUsageHistoryView.swift */,
+				3793450EFE171F5AB94F449C /* agent-prices.json */,
 				116398952DF5D6C00052E6AF /* CalendarServiceProviding.swift */,
 				C0DE000B2F0716220000000B /* PedroAgentBridge.swift */,
 				C0DE000D2F0716220000000D /* PedroAgentMonitor.swift */,
@@ -520,6 +591,8 @@
 				C0DF00002F100100000000003 /* PedroActivityManager.swift */,
 				C0DF00002F100100000000005 /* PedroTransferService.swift */,
 				C0DF00002F100100000000011 /* PedroPhoneManager.swift */,
+				C0DF20261019000100000001 /* PedroPhoneNativeNotifications.swift */,
+				C0DF20261019000100000000 /* PedroPhoneObserver.swift */,
 				C0DE00112F07230000000011 /* PedroClipboardStore.swift */,
 				C0DE00212F07230000000021 /* PedroLiveActivityManager.swift */,
 				C0DE001A2F0723000000001A /* PedroStackProvider.swift */,
@@ -908,7 +981,9 @@
 				C0DE00342F09060000000034 /* PedroActionsView.swift */,
 				C0DE00362F09060000000036 /* PedroCaptureView.swift */,
 				C0DF00002F100100000000007 /* PedroActivityView.swift */,
+				DFDF00102F100100000000001 /* PedroDeskView.swift */,
 				C0DF00002F100100000000013 /* PedroPhoneView.swift */,
+				C0DF20261019000100000002 /* PedroPhoneMediaView.swift */,
 			);
 			path = QuickTools;
 			sourceTree = "<group>";
@@ -1038,6 +1113,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C3ABD8C5A73B1A3D7BBC781C /* agent-prices.json in Resources */,
 				14CEF41D2C5CAED400855D72 /* Preview Assets.xcassets in Resources */,
 				14CEF41A2C5CAED400855D72 /* Assets.xcassets in Resources */,
 				112B0EB82E30DD0F00562D6C /* MediaRemoteAdapterTestClient in Resources */,
@@ -1158,8 +1234,12 @@
 				C0DF00002F100100000000004 /* PedroActivityManager.swift in Sources */,
 				C0DF00002F100100000000006 /* PedroTransferService.swift in Sources */,
 				C0DF00002F100100000000008 /* PedroActivityView.swift in Sources */,
+				DFDF00102F100100000000002 /* PedroDeskView.swift in Sources */,
 				C0DF00002F100100000000010 /* PedroPhoneModels.swift in Sources */,
 				C0DF00002F100100000000012 /* PedroPhoneManager.swift in Sources */,
+				C0DF20261019000200000002 /* PedroPhoneMediaView.swift in Sources */,
+				C0DF20261019000200000001 /* PedroPhoneNativeNotifications.swift in Sources */,
+				C0DF20261019000200000000 /* PedroPhoneObserver.swift in Sources */,
 				C0DF00002F100100000000014 /* PedroPhoneView.swift in Sources */,
 				C0DF00002F100100000000016 /* PedroMeetingLink.swift in Sources */,
 				C0DE00162F07230000000016 /* PedroClipboardView.swift in Sources */,
@@ -1180,6 +1260,26 @@
 				C0DE00372F09060000000037 /* PedroCaptureView.swift in Sources */,
 				C0DE000A2F0716220000000A /* PedroAgentSessionProvider.swift in Sources */,
 				C0DE00042F03070300000004 /* PedroOpsProvider.swift in Sources */,
+				F544362647701C28AE172689 /* AgentPricing.swift in Sources */,
+				70F3D7AFA2BB38EEF0DA1B9F /* PedroUsageSupport.swift in Sources */,
+				089465FBBD43252208A869B8 /* AgentClaudeAppUsage.swift in Sources */,
+				25A528429ABAAB234FD0F58A /* PedroClaudeLocalFallback.swift in Sources */,
+				478FFD1DC44B18B90C6BA581 /* AgentUsageArchive.swift in Sources */,
+				43783DC709AA19DE32A5B144 /* AgentLogParser.swift in Sources */,
+				56FA67D2FD816D9A3950A134 /* AgentUsageService.swift in Sources */,
+				65128CF42DF18AD14B748E84 /* AgentUsageModels.swift in Sources */,
+				9527DE05C378F0EE9347F2B9 /* AgentPriceSource.swift in Sources */,
+				EB7BC31B8D10E267D4AC9C16 /* AgentUsageSummary.swift in Sources */,
+				D355E4A3264C4E2080C8DD63 /* AgentUsageStore.swift in Sources */,
+				CBFA1719C038201D7F0CE4A7 /* AgentOpenCodeReader.swift in Sources */,
+				2AB21CD99D15DAD5E7FB9771 /* PrivateFileStore.swift in Sources */,
+				9405A917E03FB497CF00C80B /* PedroDockPreview.swift in Sources */,
+				B2988C5D9DAC33B6B45A4967 /* PedroAudioMixer.swift in Sources */,
+				36587BD71191BF69595EFC98 /* PedroMixerEngine.swift in Sources */,
+				D4BD5EE045E9167D4177EF2E /* MixerRender.swift in Sources */,
+				8552E99BB482988A13F52D93 /* BoostLimiter.swift in Sources */,
+				1BB711C4D223E11D0C09AA54 /* PedroMixerView.swift in Sources */,
+				3B08C369207487FFE5A95A46 /* PedroUsageHistoryView.swift in Sources */,
 				1132E5122E777B6E0068732D /* YouTubeMusicModels.swift in Sources */,
 				11CFC65F2E097F2F00748C80 /* OnboardingView.swift in Sources */,
 				14CEF4162C5CAED300855D72 /* boringNotchApp.swift in Sources */,
@@ -1426,7 +1526,8 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = boringNotch/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = TheBoringNotch;
+				INFOPLIST_KEY_CFBundleDisplayName = "Insight Notch";
+				INFOPLIST_KEY_CFBundleName = "Insight Notch";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSBackgroundOnly = NO;
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -1479,7 +1580,8 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = boringNotch/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = TheBoringNotch;
+				INFOPLIST_KEY_CFBundleDisplayName = "Insight Notch";
+				INFOPLIST_KEY_CFBundleName = "Insight Notch";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSBackgroundOnly = NO;
 				INFOPLIST_KEY_LSUIElement = YES;

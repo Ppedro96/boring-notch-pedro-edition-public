@@ -8,6 +8,18 @@ trap 'rm -R "$test_output"' EXIT
 
 cd "$repo_root"
 
+/usr/bin/python3 Tests/GeminiAppsUsageTests.py
+
+swiftc -parse-as-library \
+  boringNotch/models/PedroOpsModels.swift \
+  boringNotch/models/PedroProxmoxModels.swift \
+  boringNotch/Providers/PedroOpsProvider.swift \
+  boringNotch/Providers/PedroProxmoxProvider.swift \
+  Tests/PedroProxmoxProbeTests.swift \
+  -lsqlite3 \
+  -o "$test_output/PedroProxmoxProbeTests"
+"$test_output/PedroProxmoxProbeTests"
+
 swiftc -parse-as-library \
   boringNotch/models/PedroOpsModels.swift \
   boringNotch/models/PedroProxmoxModels.swift \
@@ -25,9 +37,11 @@ swiftc -parse-as-library \
   boringNotch/models/PedroOpsModels.swift \
   boringNotch/Providers/PedroOpsProvider.swift \
   boringNotch/models/PedroClipboardModels.swift \
+  boringNotch/models/PedroProxmoxModels.swift \
   boringNotch/models/PedroStackModels.swift \
   boringNotch/models/PedroLiveActivityModels.swift \
   boringNotch/Providers/PedroStackProvider.swift \
+  boringNotch/Providers/PedroProxmoxProvider.swift \
   Tests/PedroClipboardStackTests.swift \
   -lsqlite3 \
   -o "$test_output/PedroClipboardStackTests"
@@ -53,6 +67,7 @@ swiftc -parse-as-library \
   boringNotch/models/PedroOpsModels.swift \
   boringNotch/Providers/PedroOpsProvider.swift \
   boringNotch/Providers/PedroOpsNetworkProvider.swift \
+  boringNotch/Providers/AgentUsage/*.swift \
   Tests/PedroOpsNetworkTests.swift \
   -lsqlite3 \
   -o "$test_output/PedroOpsNetworkTests"
@@ -68,5 +83,33 @@ swiftc -parse-as-library \
   -o "$test_output/PedroActivityTests"
 "$test_output/PedroActivityTests"
 node Tests/PedroActivityBridgeTests.cjs
+python3 -m unittest discover -s Tests -p test_scrcpy_phone.py
+python3 -m unittest discover -s Tests -p test_android_window.py
+python3 -m unittest discover -s Tests -p test_desk_hub.py
+python3 -m unittest discover -s Tests -p test_battery_widgets.py
+python3 -m unittest discover -s Tests -p test_battery_hub.py
+python3 -m unittest discover -s Tests -p test_windows_battery.py
+node Tests/test-battery-collect.cjs
+swiftc -parse-as-library Widgets/macOS/Shared/BatteryViews.swift Tests/PedroBatteryWidgetTests.swift -o "$test_output/PedroBatteryWidgetTests"
+"$test_output/PedroBatteryWidgetTests"
 node Tests/PedroPhoneTransferTests.cjs
 node Tests/PedroLocalConfigTests.cjs
+node --test Tests/PedroPhoneEventsTests.cjs
+swiftc -parse-as-library \
+  boringNotch/models/PedroPhoneModels.swift \
+  Tests/PedroPhoneNotificationTests.swift \
+  -o "$test_output/PedroPhoneNotificationTests"
+"$test_output/PedroPhoneNotificationTests"
+
+swiftc -parse-as-library \
+  boringNotch/models/PedroOpsModels.swift \
+  boringNotch/models/PedroAgentModels.swift \
+  boringNotch/Providers/PedroOpsProvider.swift \
+  boringNotch/Providers/PedroAgentBridge.swift \
+  boringNotch/Providers/PedroAgentSessionProvider.swift \
+  boringNotch/Providers/AgentUsage/*.swift \
+  boringNotch/Providers/MixerRender.swift \
+  boringNotch/Providers/BoostLimiter.swift \
+  Tests/PedroDifferentialTests.swift \
+  -lsqlite3 -o "$test_output/PedroDifferentialTests"
+"$test_output/PedroDifferentialTests"

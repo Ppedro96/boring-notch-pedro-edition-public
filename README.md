@@ -9,16 +9,20 @@ GPLv3 and original third-party notices are preserved.
 ## Tools
 
 - Native Home and Shelf, with music and calendar integration
-- Claude/Codex usage windows and local activity events
+- Claude/Codex/Gemini usage windows, local activity events and optional Dot visibility
 - Clipboard history on Control+V, normal pasting on Command+V
 - Selected-area screenshots copied to the clipboard
 - Moonlight actions and Obsidian link capture
-- KDE Connect battery/charging tabs, notifications and file transfers
+- KDE Connect batteries, native macOS notifications, replies, media controls and file transfers
+- Battery widgets for macOS and Android, with an optional authenticated Python/SQLite hub
+- Android app windows with scrcpy, model icons and wireless ADB recovery helpers
+- Deskflow keyboard/mouse sharing and SSH processing queues for Linux and Windows
 - Mac, Linux/TrueNAS, Windows and Proxmox telemetry
 - Optional read-only status and alert feeds, with local dismissal
 
 The infrastructure slots retain this edition's layout. Configure your own
-hosts and feeds before using them; there is no cloud backend included.
+hosts and feeds before using them. The optional battery hub is source code for
+your own deployment; no hosted service, account or credentials are supplied.
 Dot activity uses an explicitly invoked local skill, not a native ChatGPT mirror.
 
 ## Build and Test
@@ -54,6 +58,8 @@ while the app is stopped, then reopen it.
 | `pedro_ssh_x99` | Linux status host, `user@host` |
 | `pedro_ssh_truenas` | NAS status host, `user@host` |
 | `pedro_ssh_proxmox` | Proxmox host, `user@host` |
+| `pedro_ssh_pveo2` | Second Proxmox host, `user@host` |
+| `pedro_ssh_pveo2_identity` | Second host's local SSH key filename |
 | `pedro_ssh_vps` | VPS status host, `user@host` |
 | `pedro_ssh_alienware` | Windows display endpoint |
 | `pedro_ssh_alienware_relay` | Linux gateway for the Windows SSH probe |
@@ -74,6 +80,21 @@ SSH alias and optionally fill `deviceNames` with your KDE IDs/display labels.
 An empty relay host leaves direct Mac pairings working without SSH discovery.
 Install the helpers/dependencies on the relay under
 `~/.local/share/pedro-notch/`; pair phones using KDE Connect itself.
+
+The scrcpy, worker and battery helpers retain example device profiles and SSH
+aliases (`x99` and `alienware`). Replace those examples with your own paired IDs,
+hardware serials and authorized SSH aliases before installing them. They do not
+pair devices or grant host access automatically.
+
+See [Widgets/README.md](Widgets/README.md) for the four-phone Mac widget, six-device
+Android widget and Windows battery publisher. The battery endpoint is deliberately
+`https://batteries.example.com/v1/batteries`; replace it consistently in the Android
+network client, Mac bridge and Windows publisher with your own HTTPS endpoint.
+Generate separate per-device tokens outside this repository and provision them
+through the existing protected configuration flow. Never commit the resulting files.
+Android builds use `ANDROID_SDK_ROOT` (platforms/build-tools for API 36) and
+`JAVA_HOME` (JDK 21); signing material is generated locally and ignored by Git.
+The Mac widget installer accepts `WIDGET_BUILD_PRODUCTS` for its build directory.
 
 Codex usage reads the authenticated local Codex app-server when available.
 Claude usage depends on your own local widget session cookie/refresh setup;

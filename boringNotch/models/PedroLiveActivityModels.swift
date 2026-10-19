@@ -8,6 +8,7 @@ enum PedroLiveActivityKind: String, Codable, Equatable {
     case focus
     case dailyPulse
     case externalActivity
+    case usageLimit
 }
 
 enum PedroLiveActivityPriority: Int, Codable, Comparable {

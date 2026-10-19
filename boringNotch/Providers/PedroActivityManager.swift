@@ -13,6 +13,7 @@ final class PedroActivityManager: ObservableObject {
     private var downloads: [String: PedroDownloadReading] = [:]
     private var timer: Timer?
     private var refreshing = false
+    private var visibilityCancellable: AnyCancellable?
     private let dismissedKey = "pedroActivityDismissedV1"
 
     init(defaults: UserDefaults = .standard) {
@@ -28,6 +29,10 @@ final class PedroActivityManager: ObservableObject {
             localEvents[id] = event
         }
         publish()
+        visibilityCancellable = NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.publish() }
+            }
     }
 
     func start() {
@@ -115,7 +120,10 @@ final class PedroActivityManager: ObservableObject {
         for event in rawEvents + Array(localEvents.values) where event.isValid(now: now) {
             if merged[event.id].map({ $0.updatedAt > event.updatedAt }) != true { merged[event.id] = event }
         }
-        let next = merged.values.filter { dismissed[$0.id] != $0.revision }.sorted {
+        let hideDot = defaults.bool(forKey: "hideDotIntegration")
+        let next = merged.values.filter {
+            dismissed[$0.id] != $0.revision && !(hideDot && $0.isDot)
+        }.sorted {
             if $0.state.isFinished != $1.state.isFinished { return !$0.state.isFinished }
             return $0.updatedAt > $1.updatedAt
         }

@@ -15,6 +15,8 @@ import SwiftUIIntrospect
 
 @MainActor
 struct ContentView: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Default(.insightSubtleGlass) private var subtleGlass
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var webcamManager = WebcamManager.shared
 
@@ -105,8 +107,22 @@ struct ContentView: View {
                         : cornerRadiusInsets.closed.bottom
                     )
                     .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
-                    .background(.black)
+                    .background {
+                        if vm.notchState == .open && subtleGlass && !reduceTransparency {
+                            ZStack {
+                                VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+                                LinearGradient(colors: [.black.opacity(0.62), .black.opacity(0.82)],
+                                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                            }
+                        } else { Color.black }
+                    }
                     .clipShape(currentNotchShape)
+                    .overlay {
+                        if vm.notchState == .open && subtleGlass && !reduceTransparency {
+                            currentNotchShape.stroke(Color.white.opacity(0.075), lineWidth: 1)
+                                .allowsHitTesting(false)
+                        }
+                    }
                     .overlay(alignment: .top) {
                         Rectangle()
                             .fill(.black)
@@ -145,7 +161,7 @@ struct ContentView: View {
                                 handleDownGesture(translation: translation, phase: phase)
                             }
                     }
-                    .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures]) { view in
+                    .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures] && !coordinator.currentView.ownsVerticalScrolling) { view in
                         view
                             .panGesture(direction: .up) { translation, phase in
                                 handleUpGesture(translation: translation, phase: phase)
@@ -176,6 +192,9 @@ struct ContentView: View {
                                 }
                             }
                         }
+                    }
+                    .onChange(of: coordinator.currentView) { _, _ in
+                        withAnimation(animationSpring) { gestureProgress = .zero }
                     }
                     .onChange(of: vm.notchState) { _, newState in
                         if newState == .closed && isHovering {
@@ -308,6 +327,7 @@ struct ContentView: View {
                               .transition(.opacity)
                               .onTapGesture {
                                   if activity.kind == .externalActivity { coordinator.currentView = .pedroActivity }
+                                  else if activity.kind == .usageLimit { coordinator.currentView = .pedroUsage }
                                   else if activity.kind == .calendar { coordinator.currentView = .home }
                                   doOpen()
                               }
@@ -394,9 +414,11 @@ struct ContentView: View {
                     case .pedroCapture:
                         PedroCaptureView()
                     case .pedroActivity:
-                        PedroActivityView()
+                        PedroDeskView()
                     case .pedroPhone:
                         PedroPhoneView()
+                    case .pedroMixer:
+                        PedroMixerView()
                     }
                 }
                 .transaction { transaction in
@@ -411,7 +433,8 @@ struct ContentView: View {
                         coordinator.currentView == .pedroActions ||
                         coordinator.currentView == .pedroCapture ||
                         coordinator.currentView == .pedroActivity ||
-                        coordinator.currentView == .pedroPhone {
+                        coordinator.currentView == .pedroPhone ||
+                        coordinator.currentView == .pedroMixer {
                         transaction.animation = nil
                     }
                 }
@@ -641,7 +664,8 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        guard vm.notchState == .open && !vm.isHoveringCalendar else { return }
+        // Content with vertical scrolling owns the wheel in both directions, including momentum.
+        guard vm.notchState == .open && !vm.isHoveringCalendar && !coordinator.currentView.ownsVerticalScrolling else { return }
 
         withAnimation(animationSpring) {
             gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20

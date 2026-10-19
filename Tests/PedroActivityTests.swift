@@ -59,6 +59,17 @@ struct PedroActivityTests {
         lateProgress.state = .running
         restored.record(lateProgress)
         precondition(restored.events.first?.state == .completed)
+        // Hiding Dot preserves its history and leaves transfers visible.
+        let transfer = PedroActivityEvent(id: "transfer-test", revision: "1", kind: "transfer",
+            title: "Copia", detail: "Teste", state: .completed, updatedAt: Date(),
+            progress: nil, url: nil, outputPath: nil)
+        restored.record(transfer)
+        defaults.set(true, forKey: "hideDotIntegration")
+        let hidden = PedroActivityManager(defaults: defaults)
+        precondition(hidden.events.map(\.id) == [transfer.id])
+        defaults.set(false, forKey: "hideDotIntegration")
+        let shown = PedroActivityManager(defaults: defaults)
+        precondition(Set(shown.events.map(\.id)) == Set([event.id, transfer.id]))
         event.progress = 101
         precondition(!event.isValid())
         event.url = "file:///etc/passwd"
