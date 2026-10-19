@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C07120261019000000000008 /* PedroContinuityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07120261019000000000007; };
+		C07120261019000000000006 /* PedroContinuityProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07120261019000000000005; };
+		C07120261019000000000004 /* PedroContinuityTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07120261019000000000003; };
+		C07120261019000000000002 /* PedroContinuityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07120261019000000000001; };
 		C0DE20261019000000000002 /* ShelfFileDragWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE20261019000000000001; };
 		DFDF00102F100100000000002 /* PedroDeskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFDF00102F100100000000001; };
 		C0DF00002F100100000000002 /* PedroActivityModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DF00002F100100000000001 /* PedroActivityModels.swift */; };
@@ -243,6 +247,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C07120261019000000000007 /* PedroContinuityViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroContinuityViews.swift; sourceTree = "<group>"; };
+		C07120261019000000000005 /* PedroContinuityProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroContinuityProvider.swift; sourceTree = "<group>"; };
+		C07120261019000000000003 /* PedroContinuityTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroContinuityTransport.swift; sourceTree = "<group>"; };
+		C07120261019000000000001 /* PedroContinuityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroContinuityModels.swift; sourceTree = "<group>"; };
 		C0DE20261019000000000001 /* ShelfFileDragWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfFileDragWriter.swift; sourceTree = "<group>"; };
 		DFDF00102F100100000000001 /* PedroDeskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroDeskView.swift; sourceTree = "<group>"; };
 		C0DF00002F100100000000001 /* PedroActivityModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PedroActivityModels.swift; sourceTree = "<group>"; };
@@ -589,6 +597,8 @@
 				C0DE000D2F0716220000000D /* PedroAgentMonitor.swift */,
 				C0DE00092F07162200000009 /* PedroAgentSessionProvider.swift */,
 				C0DE00132F07230000000013 /* PedroClipboardManager.swift */,
+				C07120261019000000000005 /* PedroContinuityProvider.swift */,
+				C07120261019000000000003 /* PedroContinuityTransport.swift */,
 				C0DE00392F09070000000039 /* PedroAreaScreenshot.swift */,
 				C0DE003B2F1001000000003B /* PedroOpsNetworkProvider.swift */,
 				C0DF00002F100100000000003 /* PedroActivityManager.swift */,
@@ -838,6 +848,7 @@
 				1153BD902D986DB300979FB0 /* PlaybackState.swift */,
 				C0DE00072F07162200000007 /* PedroAgentModels.swift */,
 				C0DE000F2F0723000000000F /* PedroClipboardModels.swift */,
+				C07120261019000000000001 /* PedroContinuityModels.swift */,
 				C0DE001F2F0723000000001F /* PedroLiveActivityModels.swift */,
 				C0DE00182F07230000000018 /* PedroStackModels.swift */,
 				C0DE00252F08270000000025 /* PedroProxmoxModels.swift */,
@@ -985,6 +996,7 @@
 				C0DE00362F09060000000036 /* PedroCaptureView.swift */,
 				C0DF00002F100100000000007 /* PedroActivityView.swift */,
 				DFDF00102F100100000000001 /* PedroDeskView.swift */,
+				C07120261019000000000007 /* PedroContinuityViews.swift */,
 				C0DF00002F100100000000013 /* PedroPhoneView.swift */,
 				C0DF20261019000100000002 /* PedroPhoneMediaView.swift */,
 			);
@@ -1239,6 +1251,10 @@
 				C0DF00002F100100000000006 /* PedroTransferService.swift in Sources */,
 				C0DF00002F100100000000008 /* PedroActivityView.swift in Sources */,
 				DFDF00102F100100000000002 /* PedroDeskView.swift in Sources */,
+				C07120261019000000000008 /* PedroContinuityViews.swift in Sources */,
+				C07120261019000000000006 /* PedroContinuityProvider.swift in Sources */,
+				C07120261019000000000004 /* PedroContinuityTransport.swift in Sources */,
+				C07120261019000000000002 /* PedroContinuityModels.swift in Sources */,
 				C0DF00002F100100000000010 /* PedroPhoneModels.swift in Sources */,
 				C0DF00002F100100000000012 /* PedroPhoneManager.swift in Sources */,
 				C0DF20261019000200000002 /* PedroPhoneMediaView.swift in Sources */,

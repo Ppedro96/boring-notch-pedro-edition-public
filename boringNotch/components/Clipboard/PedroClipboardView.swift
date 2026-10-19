@@ -4,6 +4,7 @@ import SwiftUI
 struct PedroClipboardView: View {
     @EnvironmentObject private var vm: BoringViewModel
     @ObservedObject private var manager = PedroClipboardManager.shared
+    @ObservedObject private var continuity = PedroContinuityProvider.shared
     @FocusState private var searchFocused: Bool
     @State private var selectedID: UUID?
 
@@ -40,7 +41,7 @@ struct PedroClipboardView: View {
                 .accessibilityLabel("Copiar print de uma área")
                 .help("Selecionar área e copiar print")
 
-                if let feedback = manager.feedback {
+                if let feedback = manager.feedback ?? continuity.feedback {
                     Text(feedback)
                         .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(manager.feedbackIsError ? .orange : .green)
@@ -49,6 +50,7 @@ struct PedroClipboardView: View {
                         .frame(width: 92, alignment: .trailing)
                 } else {
                     Button {
+                        for item in continuity.uncachedClipboardItems where !item.flag("pinned") { continuity.remove(topic: "clipboard", key: item.id) }
                         manager.clearUnpinned()
                     } label: {
                         Image(systemName: "trash")
@@ -58,9 +60,9 @@ struct PedroClipboardView: View {
                     .foregroundStyle(.secondary)
                     .help("Limpar itens não fixados")
                 }
-            }
+            }.help(continuity.statusLabel)
 
-            if manager.filteredItems.isEmpty {
+            if manager.filteredItems.isEmpty && continuity.uncachedClipboardItems.isEmpty {
                 VStack(spacing: 5) {
                     Image(systemName: "clipboard")
                         .font(.system(size: 20, weight: .medium))
@@ -73,6 +75,9 @@ struct PedroClipboardView: View {
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: 7) {
+                            ForEach(continuity.uncachedClipboardItems.filter { manager.query.isEmpty || ($0.text("label") + $0.text("text")).localizedCaseInsensitiveContains(manager.query) }) { item in
+                                PedroSharedItemCard(item: item, topic: "clipboard")
+                            }
                             ForEach(manager.filteredItems) { item in
                                 itemCard(item)
                                     .id(item.id)
@@ -163,6 +168,9 @@ struct PedroClipboardView: View {
         .contextMenu {
             Button(item.isPinned ? "Desafixar" : "Fixar") {
                 manager.togglePinned(item)
+            }
+            if continuity.enabled && item.kind != .file {
+                Button("Compartilhar agora") { continuity.publishClipboard(item, recaptured: true) }
             }
             Button("Remover", role: .destructive) {
                 manager.remove(item)

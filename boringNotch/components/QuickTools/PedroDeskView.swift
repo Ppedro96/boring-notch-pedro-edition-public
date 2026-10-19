@@ -17,6 +17,9 @@ struct PedroDeskJob: Decodable, Identifiable {
     let progress: Double?
     let output: String?
     let source: String?
+    let origin: String?
+    let legacyLocal: Bool?
+    let cancelPending: Bool?
     var active: Bool { state == "waiting" || state == "running" }
 }
 struct PedroDeskFile: Decodable, Identifiable {
@@ -30,6 +33,7 @@ private struct PedroDeskReply: Decodable {
     let error: String?
     let hosts: [PedroDeskHost]?
     let jobs: [PedroDeskJob]?
+    let localHistory: [PedroDeskJob]?
     let results: [PedroDeskFile]?
     let apps: [PedroAndroidApp]?
     let warnings: [String]?
@@ -37,6 +41,10 @@ private struct PedroDeskReply: Decodable {
     let detail: String?
     let running: Bool?
     let connected: [String]?
+    let ready: [String]?
+    let pending: [String]?
+    let layout: String?
+    let partial: Bool?
     let inputMode: String?
 }
 
@@ -62,6 +70,10 @@ private struct PedroDeskReply: Decodable {
     @Published var deskError: String?
     private var deskPolling = false
     private var deskVersion = 0
+    @Published var deskReady: [String] = []
+    @Published var deskPending: [String] = []
+    @Published var deskLayout = UserDefaults.standard.string(forKey: "pedroDeskLayoutV1") ?? "x99-left"
+    @Published var deskPartial = false
     @Published var deskConnected: [String] = []
     @Published var deskDetail = ""
     @Published var deskInputMode = "deskflow"
@@ -80,6 +92,9 @@ private struct PedroDeskReply: Decodable {
     private var deskViewers = 0
     private var searchVersion = 0
     private static func execute(_ request: [String: String], helper: String = "desk-hub.py", arguments: [String] = []) async -> Data {
+        if helper == "desk-hub.py", PedroContinuityProvider.shared.enabled {
+            return await PedroContinuityProvider.shared.desk(request)
+        }
         let payload = (try? JSONSerialization.data(withJSONObject: request)) ?? Data()
         return await Task.detached(priority: .utility) {
             let process = Process(), output = Pipe(), errors = Pipe(), input = Pipe()
@@ -140,7 +155,7 @@ private struct PedroDeskReply: Decodable {
         guard !polling else { return }; polling = true
         Task {
             defer { polling = false }
-            if let result = reply(await Self.execute(["command": "jobs"])) { jobs = result.jobs ?? [] }
+            if let result = reply(await Self.execute(["command": "jobs"])) { jobs = (result.jobs ?? []) + (result.localHistory ?? []) }
         }
     }
     func choose() {
@@ -170,8 +185,28 @@ private struct PedroDeskReply: Decodable {
         guard !acting else { return }; acting = true
         Task {
             defer { acting = false }
-            _ = reply(await Self.execute(["command": "submit", "source": job.source ?? "", "host": job.host, "operation": job.operation])); poll()
+            guard job.legacyLocal != true else { return }
+            let request = PedroContinuityProvider.shared.enabled
+                ? ["command": "retry", "id": job.id]
+                : ["command": "submit", "source": job.source ?? "", "host": job.host, "operation": job.operation]
+            _ = reply(await Self.execute(request)); poll()
         }
+    }
+    func download(_ job: PedroDeskJob) {
+        guard !acting else { return }; acting = true
+        Task {
+            defer { acting = false }
+            var request = ["command": "result", "id": job.id]
+            if job.legacyLocal == true { request["legacyLocal"] = "true" }
+            if let result = reply(await Self.execute(request)), let output = result.output {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: output)])
+                message = "Resultado recebido e verificado"
+            }
+        }
+    }
+    func setLayout(_ value: String) {
+        guard PedroContinuityProvider.shared.enabled else { deskLayout = value; UserDefaults.standard.set(value, forKey: "pedroDeskLayoutV1"); return }
+        Task { _ = reply(await Self.execute(["command": "input_layout", "layout": value])); deskflow() }
     }
     func cancel(_ job: PedroDeskJob) {
         Task { _ = reply(await Self.execute(["command": "cancel", "id": job.id])); poll() }
@@ -219,6 +254,10 @@ private struct PedroDeskReply: Decodable {
             if let result = try? JSONDecoder().decode(PedroDeskReply.self, from: data), result.ok != false {
                 if let running = result.running { deskRunning = running }
                 if let connected = result.connected { deskConnected = connected }
+                deskReady = result.ready ?? result.connected ?? []
+                deskPending = result.pending ?? []
+                deskPartial = result.partial ?? false
+                if let layout = result.layout { deskLayout = layout }
                 if let inputMode = result.inputMode { deskInputMode = inputMode }
                 deskDetail = result.detail ?? ""
                 if mutation { deskflow() }
@@ -268,7 +307,7 @@ struct PedroDeskView: View {
             else if section == "search" { searchView }
             else { jobsView }
             if section != "copies" {
-                let message = manager.message ?? "Resultados em Downloads/Insight Notch"
+                let message = manager.message ?? "Resultados recebidos e verificados neste computador"
                 HStack(spacing: 5) {
                     Text(message).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1).help(message)
                     Spacer(minLength: 0)
@@ -322,13 +361,13 @@ struct PedroDeskView: View {
                                 if job.active {
                                     Text("\(Int(job.progress ?? 0))%").font(.system(size: 10)).monospacedDigit().foregroundStyle(.secondary)
                                     Button { manager.cancel(job) } label: { Image(systemName: "stop.fill").frame(width: 22, height: 20) }.help("Cancelar tarefa")
-                                } else if job.state == "failed" || job.state == "cancelled" {
+                                } else if (job.state == "failed" || job.state == "cancelled") && job.legacyLocal != true {
                                     Button { manager.retry(job) } label: { Image(systemName: "arrow.clockwise").frame(width: 22, height: 20) }.help("Tentar novamente").disabled(manager.acting)
-                                } else if let output = job.output {
-                                    Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: output)]) } label: { Image(systemName: "folder").frame(width: 22, height: 20) }.help("Mostrar resultado")
+                                } else if job.state == "completed" || job.output != nil {
+                                    Button { manager.download(job) } label: { Image(systemName: "folder").frame(width: 22, height: 20) }.help("Mostrar resultado")
                                 }
                             }
-                            Text(job.host.uppercased() + " · " + job.detail).font(.system(size: 10)).foregroundStyle(job.state == "failed" ? .orange : .secondary)
+                            Text(job.host.uppercased() + (job.legacyLocal == true ? " · local" : " · " + (job.origin ?? "")) + " · " + (job.cancelPending == true ? "Cancelamento solicitado" : job.detail)).font(.system(size: 10)).foregroundStyle(job.state == "failed" ? .orange : .secondary)
                                 .lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .leading).help(job.detail)
                             if job.active { ProgressView(value: job.progress ?? 0, total: 100).tint(.cyan).frame(height: 3) }
                         }.padding(.horizontal, 8).padding(.vertical, 5).deskCard()
@@ -485,7 +524,8 @@ private struct PedroDeskWindowReader: NSViewRepresentable {
 
 struct PedroContinuousDeskView: View {
     @ObservedObject private var manager = PedroDeskManager.shared
-    @AppStorage("pedroDeskLayoutV1") private var layout = "x99-left"
+    private var layout: String { manager.deskLayout }
+    private var layoutBinding: Binding<String> { Binding(get: { manager.deskLayout }, set: { manager.setLayout($0) }) }
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 6) {
@@ -497,14 +537,14 @@ struct PedroContinuousDeskView: View {
                     computer(layout == "x99-left" ? "alienware" : "x99")
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 HStack(spacing: 8) {
-                    Text(manager.deskError ?? (manager.deskInputMode == "mesh" ? "⌃⌥Home · controle local" : "⌃⌥Home · voltar ao Mac")).font(.system(size: 10))
+                    Text(manager.deskError ?? (manager.deskInputMode == "mesh" ? "⌃⌥Home · origem física" : "⌃⌥Home · voltar ao Mac")).font(.system(size: 10))
                         .foregroundStyle(manager.deskError == nil ? Color.secondary : Color.orange).lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading).help(manager.deskError ?? "Teclado, mouse e área de transferência")
                     Button { manager.deskflow(manager.deskRunning ? "stop" : "start", layout: layout) } label: {
                         Label(manager.deskRunning ? "Pausar" : "Conectar", systemImage: manager.deskRunning ? "pause.fill" : "play.fill")
                     }.font(.system(size: 11, weight: .medium)).foregroundStyle(.cyan).disabled(manager.deskBusy)
                     Menu {
-                        Picker("Disposição", selection: $layout) {
+                        Picker("Disposição", selection: layoutBinding) {
                             Text("X99 à esquerda").tag("x99-left")
                             Text("Alienware à esquerda").tag("alienware-left")
                         }.disabled(manager.deskRunning)
@@ -518,13 +558,16 @@ struct PedroContinuousDeskView: View {
         }.clipped().buttonStyle(.plain).onAppear { manager.deskAppear() }.onDisappear { manager.deskDisappear() }
     }
     private func computer(_ id: String) -> some View {
-        let connected = id == "mac" ? manager.deskRunning : manager.deskConnected.contains(id)
+        let connected = manager.deskConnected.contains(id)
+        let ready = manager.deskReady.contains(id)
+        let pending = manager.deskPending.contains(id)
+        let label = pending ? "Pendente" : connected ? "Conectado" : ready ? "Pronto" : "Indisponível"
         return VStack(spacing: 4) {
             InsightSemanticIcon(name: id == "alienware" ? "insight.alienware" : id == "mac" ? "laptopcomputer" : "desktopcomputer").font(.system(size: 20)).foregroundStyle(connected ? .cyan : .secondary)
             Text(id == "mac" ? "Mac" : id == "x99" ? "X99" : "Alienware").font(.system(size: 13, weight: .semibold))
             HStack(spacing: 4) {
-                Circle().fill(connected ? Color.green : .gray).frame(width: 5, height: 5)
-                Text(connected ? "Conectado" : "Aguardando").font(.system(size: 10)).foregroundStyle(.secondary)
+                Circle().fill(connected ? Color.green : ready ? .cyan : .gray).frame(width: 5, height: 5)
+                Text(label).font(.system(size: 10)).foregroundStyle(.secondary)
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(7).deskCard().help((id == "mac" ? "Mac" : id == "x99" ? "X99" : "Alienware") + (connected ? " · conectado" : " · aguardando conexão"))
     }

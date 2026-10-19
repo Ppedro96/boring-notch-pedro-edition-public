@@ -368,6 +368,7 @@ final class ShelfItemViewModel: ObservableObject {
         }
 
         menu.addItem(NSMenuItem.separator())
+        if PedroContinuityProvider.shared.enabled { addMenuItem(title: "Compartilhar novamente") }
         addMenuItem(title: "Remove")
 
         let actionTarget = MenuActionTarget(item: item, view: view, viewModel: self)
@@ -540,6 +541,8 @@ final class ShelfItemViewModel: ObservableObject {
                     }
                 }
 
+            case "Compartilhar novamente":
+                PedroContinuityProvider.shared.publishShelf(item)
             case "Remove":
                 let selected = ShelfSelectionModel.shared.selectedItems(in: ShelfStateViewModel.shared.items)
                 for it in selected { ShelfActionService.remove(it) }

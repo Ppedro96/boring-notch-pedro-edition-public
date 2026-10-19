@@ -1,0 +1,9 @@
+# Lan Mouse capture backport
+
+This source-only integration applies the official read-once Wayland capture fix to the unchanged Lan Mouse 0.11.0 release base. It changes two hunks in the layer-shell capture source; wire and IPC code are unchanged.
+
+The base is `0d2190e787db9e482e17d4c16fb7c00ef4841bcb`. The patch is copied verbatim from [upstream commit c194df791dc11c79d266ada4d413179d4da3525b](https://github.com/feschber/lan-mouse/commit/c194df791dc11c79d266ada4d413179d4da3525b), authored by Ian Douglas Scott and committed upstream by feschber. Backport integration prepared October 19, 2026. The patch and build helper are GPL-3.0-or-later; the accompanying LICENSE is the upstream GPL version 3 text.
+
+Give the build helper a pristine isolated checkout of that exact release and an existing Cargo toolchain. Dependencies must already be cached. The helper verifies the source, patch and lockfile hashes, applies only the official patch, builds offline with locked dependencies, and compiles/runs the binary and capture-library unit-test targets. The release build enables layer-shell capture, libei capture/emulation, and portal emulation without default GUI features. It prints source and candidate hashes. It never deploys or starts the candidate. A failed run leaves its isolated checkout for inspection; use another pristine checkout to reproduce it.
+
+Upstream documents an infinite loop when a particular Wayland backend feature is enabled. That condition has not been established for the previously installed binary. The candidate is a trial: successful compilation and native readiness do not establish an improvement in physical input quality. Preserve the prior binary and existing profile, identity and portal state for comparison and rollback. No mouse polling, coalescing, network, operating-system, or permission changes are part of this backport.

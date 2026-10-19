@@ -37,6 +37,7 @@ final class ShelfStateViewModel: ObservableObject {
             let key = it.identityKey
             if !seen.contains(key) {
                 merged.append(it)
+                PedroContinuityProvider.shared.publishShelf(it)
                 seen.insert(key)
             }
         }
@@ -44,8 +45,13 @@ final class ShelfStateViewModel: ObservableObject {
     }
 
     func remove(_ item: ShelfItem) {
+        PedroContinuityProvider.shared.remove(topic: "shelf", key: item.id.uuidString)
         item.cleanupStoredData()
         items.removeAll { $0.id == item.id }
+    }
+
+    func removeShared(id: String) {
+        items.removeAll { $0.id.uuidString == id }
     }
 
     func updateBookmark(for item: ShelfItem, bookmark: Data) {

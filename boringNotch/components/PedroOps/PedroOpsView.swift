@@ -11,6 +11,7 @@ private enum PedroUsageMode: String, CaseIterable, Identifiable {
 
 struct PedroOpsView: View {
     let tab: PedroOpsTabKind
+    @ObservedObject private var continuity = PedroContinuityProvider.shared
     @ObservedObject private var network = PedroOpsNetworkProvider.shared
 
     @State private var cards: [PedroOpsCard] = []
@@ -183,12 +184,13 @@ struct PedroOpsView: View {
         cardHeight: CGFloat,
         spacing: CGFloat
     ) -> some View {
-        if sessions.isEmpty && !sessionsAreLoading {
+        let sharedTasks = PedroContinuityPolicy.sharedTasksForDisplay(continuity.items("tasks"), peer: continuity.peer)
+        if sessions.isEmpty && sharedTasks.isEmpty && !sessionsAreLoading {
             PedroAgentSessionsEmptyState(width: availableWidth, height: cardHeight)
         } else {
             let cardWidth = CGFloat(
                 PedroOpsCardLayout.cardWidth(
-                    cardCount: sessions.count,
+                    cardCount: sessions.count + sharedTasks.count,
                     availableWidth: Double(max(0, availableWidth)),
                     spacing: Double(spacing),
                     visibleLimit: PedroAgentSession.visibleLimit
@@ -197,6 +199,9 @@ struct PedroOpsView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing) {
+                    ForEach(sharedTasks) { item in
+                        PedroSharedTaskCard(item: item).frame(width: cardWidth, height: cardHeight)
+                    }
                     ForEach(sessions) { session in
                         PedroAgentSessionCard(
                             session: session,
@@ -282,6 +287,8 @@ struct PedroOpsView: View {
         }
     }
 
+    private var sharedVisibleAlerts: [PedroOpsAlert] { alertSnapshot.alerts.filter { !continuity.isAcknowledged($0) } }
+
     private var alertsContent: some View {
         GeometryReader { geometry in
             let spacing = CGFloat(8)
@@ -292,7 +299,7 @@ struct PedroOpsView: View {
                     availableHeight: Double(contentHeight)
                 )
             )
-            let visibleCards = max(cards.count, alertSnapshot.alerts.isEmpty ? 1 : alertSnapshot.alerts.count)
+            let visibleCards = max(1, sharedVisibleAlerts.count)
             let cardWidth = CGFloat(
                 PedroOpsCardLayout.cardWidth(
                     cardCount: visibleCards,
@@ -308,7 +315,7 @@ struct PedroOpsView: View {
                     alertSummaryChip
                     alertFeedChip
                     Spacer(minLength: 6)
-                    if !alertSnapshot.alerts.isEmpty {
+                    if !sharedVisibleAlerts.isEmpty {
                         Button(action: clearAllAlerts) {
                             Label("Limpar tudo", systemImage: "trash")
                                 .font(.system(size: 10, weight: .semibold))
@@ -325,7 +332,7 @@ struct PedroOpsView: View {
                 }
                 .frame(height: headerHeight, alignment: .center)
 
-                if alertSnapshot.alerts.isEmpty {
+                if sharedVisibleAlerts.isEmpty {
                     PedroOpsAlertsEmptyState(
                         feedState: alertFeedState,
                         width: max(220, geometry.size.width),
@@ -334,7 +341,7 @@ struct PedroOpsView: View {
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: spacing) {
-                            ForEach(alertSnapshot.alerts) { alert in
+                            ForEach(sharedVisibleAlerts) { alert in
                                 if let card = cardsByID[alert.id] {
                                     PedroOpsAlertCardView(
                                         card: card,
@@ -352,10 +359,11 @@ struct PedroOpsView: View {
     }
 
     private var alertSummaryLabel: String {
-        if alertSnapshot.alerts.isEmpty {
+        if sharedVisibleAlerts.isEmpty {
             return "Sem alertas visíveis"
         }
 
+        let alertSnapshot = PedroOpsAlertsSnapshot(alerts: sharedVisibleAlerts)
         var segments: [String] = []
         if alertSnapshot.criticalCount > 0 {
             segments.append("\(alertSnapshot.criticalCount) críticos")
@@ -372,7 +380,7 @@ struct PedroOpsView: View {
     private var alertSummaryChip: some View {
         HStack(spacing: 6) {
             Circle()
-                .fill(alertSnapshot.alerts.isEmpty ? Color.green : Color.white.opacity(0.9))
+                .fill(sharedVisibleAlerts.isEmpty ? Color.green : Color.white.opacity(0.9))
                 .frame(width: 7, height: 7)
             Text(alertSummaryLabel)
                 .font(.system(size: 11, weight: .semibold))
@@ -383,7 +391,7 @@ struct PedroOpsView: View {
         .padding(.vertical, 5)
         .background(
             Capsule()
-                .fill(Color.white.opacity(alertSnapshot.alerts.isEmpty ? 0.08 : 0.06))
+                .fill(Color.white.opacity(sharedVisibleAlerts.isEmpty ? 0.08 : 0.06))
         )
     }
 
@@ -525,6 +533,7 @@ struct PedroOpsView: View {
 
     private func dismissAlerts(_ ids: [String]) {
         let visibleAlerts = alertSnapshot.alerts
+        continuity.acknowledge(visibleAlerts.filter { ids.contains($0.id) })
         loadGeneration += 1
         isLoading = false
         alertSnapshot = PedroOpsAlertsSnapshot(

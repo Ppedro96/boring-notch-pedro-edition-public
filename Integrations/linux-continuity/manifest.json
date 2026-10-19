@@ -1,0 +1,309 @@
+{
+  "format": 1,
+  "component": "Insight Notch native Linux continuity",
+  "license": "GPLv3; see repository LICENSE",
+  "patch": {
+    "file": "native-continuity.patch",
+    "sha256": "a2c88f809c5cd58035f66d35d47ab0e609db65072d73fe27c7b4771877c13a06"
+  },
+  "prerequisite": {
+    "gitHead": "478495be315fa087888e43a855cd5e9121d224d8",
+    "cleanCheckoutSufficient": false,
+    "description": "Prepared Linux source tree with existing native productivity, alerts, clipboard, Desk, agent and phone components. Preexisting changes are not included in this incremental patch. Every listed prerequisite file must already match its SHA-256.",
+    "sourceSHA256": {
+      "CMakeLists.txt": "77a3224d7a6558639d2bac2cc47dad30e42661c0a4b601591426e6823c21e2f2",
+      "LICENSE": "725c71d015ab88d2b39c3caa761e88763e669c55beef8693dd15e8c6799e64bc",
+      "integrations/desk/continuity_desk.py": "25dc79512333a8d0f4ef2bfc1d693a1758a38bb758c55b568e1fb619e7f5df37",
+      "integrations/desk/desk-hub.py": "076af2e030122eef1cbb2ab6460248c0861202b8dd97c9bf7eaff07bcd4ceddb",
+      "integrations/desk/desk-worker.py": "b9181c41e8fa29c069c8bef2954496bfc1cf2c8f01dc2f62afb8702d7b8af842",
+      "integrations/desk/lan-mouse-control.py": "e6ab28ddb2f5437bd85e137ad3263e9030711e9901fad77fb25a1aa5047db455",
+      "packaging/insight-notch-command.desktop": "c1c56f60125772a252a4658b0675f0fe3309179d72dcd17ccb37c438fe69fcf5",
+      "packaging/insight-notch-linux.desktop": "bc0c312933cf5112d10fc64ff321e2cd4f23abb7b78330f36a15f8d53f785594",
+      "packaging/insight-notch-linux.service": "cdf76b9e66668019781072832e565b34d37a76045d0637802677d7887b8b73a0",
+      "packaging/insight-notch-linux.svg": "b0455a957b2ad24fb8da9522514bde4729f58726281c49431f4d0f6ee47d18a0",
+      "qml/Main.qml": "bce54c7a9c8f001937a3e0c919c073c59a4dce0dbc758e0c3fa3fae214356caa",
+      "qml/components/CalendarPanel.qml": "da99f2b7265abd0d8555517bbdff471bb5ab1995b1d82dd53fa3fef12b74ff4d",
+      "qml/components/MetricBar.qml": "fc4636038e56b501b77f8afb60a024bb10b58a75f835ad962cbd78b3a3a783a7",
+      "qml/components/MetricCard.qml": "c6a4d6ad156c4b23dad38128a01609d77ee78f2c3cf37f108be083f80aab0191",
+      "qml/components/MusicHome.qml": "7e70c4c998feeab7eb1013d37b6c6a39d9445767eb3cb9a522d15957108fc807",
+      "qml/components/StatusDot.qml": "f4c5a6df5e4cfe93899c6a9d5d62fa33530cb06415ccda1ce9cfa7a27bde4da6",
+      "qml/components/UsageCard.qml": "2911fa671573d4431567d361b4f94529d59d145c9bc44a8ea8b262e777e8ef7d",
+      "qml/pages/AlertsPane.qml": "0f1984f9fce0c36f99521bb2b553701f4158f1c99973ed7958002fffc8dd7ed6",
+      "qml/pages/DeskPage.qml": "6df85b22946b419e944facb735ab8e3fd2217eaa2a13bc659f6b6380ecd0f4b1",
+      "qml/pages/PhonePage.qml": "143a68e7bfc91cfea82624bb471b56cf2a9fc10023a4b177d4cd3f77d8b10032",
+      "qml/pages/ProductivityPage.qml": "ffa537ca88b6d72f66e749a2a286d2fd234972f69879878a803eec99773bd7c4",
+      "qml/pages/productivity/AccentButton.qml": "9ca765ab461e5b3a1121ba967883e497e86aa5499ebcc06070e59680edb7abd0",
+      "qml/pages/productivity/ActionsPane.qml": "2dacd23df9388e6ae14b0a7e3ec90ad07b269a8cefa2d6dbc069cd8ae6094bf8",
+      "qml/pages/productivity/CapturePane.qml": "f6ea116ac01bdb9394887f61cbac316ff1f48ea58a70b3a701c5eab0875b1b28",
+      "qml/pages/productivity/ContextPane.qml": "7119794d438180e09dcee5818b9b27bc4450dd94ce957ff083d6fe024073f335",
+      "qml/pages/productivity/DarkButton.qml": "56fa66bf4ba77fda4b357ac4609ec4b7de8af7d34d9f84f271a7b91bcf62ed6d",
+      "qml/pages/productivity/LinksPane.qml": "d60c4f4529371d8fda283930989b9ce9706f09d65c30754cc35005e333e548fe",
+      "qml/pages/productivity/ModeSelector.qml": "2dba8a46e4034b287c7c7382f096649fddda9ff8d09dd9c2408b26aeccea9db7",
+      "qml/pages/productivity/SearchPane.qml": "8e4ddadcd5a5ec21606324820ee7290808fd94d0cf7ed05c87df729e7304285f",
+      "scripts/insight-agent-bridge.js": "81b6afa002f2f071c48976e8dd056d90dfba3b8f7a6392238b0e614db1ceb468",
+      "scripts/install-agent-hooks.sh": "46c5a1d1d513675f24f800cf9d41fbd7e5f3ed0becb89c0a6b31e273d765ccdc",
+      "scripts/install-user.sh": "238fcb9ca5834253102b826795bbc32cffe5ed56e70cf4e92b6f06a5433e32bf",
+      "scripts/verify-installation.sh": "2682adf5587a940265994332fcb0a981682b20081a9610efe00ecae94b738ccf",
+      "src/agents/AgentBridge.cpp": "176eb4516b50951cce3facd75ca1fa55439246aa8df4273bf794ff2cade3bd55",
+      "src/agents/AgentBridge.h": "8b3844b4fb612b286cd82ffc44bf07f4878442a6b82fc96bbd5fca798eb3dbfc",
+      "src/alerts/AlertsParsers.cpp": "d6ac07e7c6b0132928cd20138091c0440e40f9ee9ffcb2afd19cf38c31c1640c",
+      "src/alerts/AlertsParsers.h": "50a93942afc6901eee229d81bbe157fe96907b13ce780948befaa7dc3e40eddf",
+      "src/alerts/AlertsProvider.cpp": "25cb56d1266f24cec693010bd662a18fb3a240740aa2403ea11381a23cfcf0eb",
+      "src/alerts/AlertsProvider.h": "f2a3deef6ab68494393f65a17403d19ffdd50c0c0c8fb5736189e48a872fc6cd",
+      "src/desk/DeskProvider.cpp": "4f5692ac7c99c00ec39ea045b9baede2246d57f2f8e3383f601d6dd170ee255d",
+      "src/desk/DeskProvider.h": "185367eb3a170274e8a77bfca4ce32679c656343a276ec378e36cd58294bcae4",
+      "src/hardware/HardwareMonitor.cpp": "3e0ba6e6fd8680757c00ba6d22422c82744c1cfad1cdd1c25392fd5f2b56c409",
+      "src/hardware/HardwareMonitor.h": "b44ea52132283b5e03349958d99d84532b2b85b72de4385370ce5204b4c07df2",
+      "src/hardware/HardwareParsers.cpp": "079d6804c27129cb42b019826caaa63c88ec3e5de38b13ecb78e4741675063a4",
+      "src/hardware/HardwareParsers.h": "363421307f6cc7b4febea77599c2e89736e5f654a0a9a08ef14fd79def58649e",
+      "src/local/ClipboardStore.cpp": "da85ba9809bafe26bfc9bd2176d9af2ad7997a6b4c18f81c58440684db903fd1",
+      "src/local/ClipboardStore.h": "6505730605bd7000407b14f35d9eda672278ee3398a1a22bd244801c09bf7bc2",
+      "src/main.cpp": "e6eb1252568582b65b0a1c189a6561760540fc25a2f47c735e542350037797de",
+      "src/media/MediaParsers.cpp": "2edbb3875634752f94e83467cb650413065500e5d67866349692791dd887edee",
+      "src/media/MediaParsers.h": "606abb027252fa374ad9a6fccc77c0a4e289ee132332a9ea145aaff9179a5735",
+      "src/media/MediaProvider.cpp": "2571d8d198fa041b59e9a98a18b7380b7fbdd67973890e5ca2f51c93094852cc",
+      "src/media/MediaProvider.h": "8ffec2d78a86d138b996354281334f50b124f79aaefb319c9936f63c3e580e7a",
+      "src/phone/PhoneParsers.cpp": "fb939ce48391a36c3f22d68ea4fa491b64faf8275c7760da7ddc02fa1e90924f",
+      "src/phone/PhoneParsers.h": "b25cbde16c501587583dbc5c96d9ec144a6fc0c6f9aa93bbf2cbc8d837ef81c4",
+      "src/phone/PhoneProvider.cpp": "8f91bf33a030a962cea84c5dbfc22fc149b47c51a092474e3c5b567fe3f9ced0",
+      "src/phone/PhoneProvider.h": "9a8dd62fb47134292b393c933d974a70d742b0fdd96ed68a70ab2309d8aabe86",
+      "src/productivity/CommandBridge.cpp": "766166de5e9db9ab09cb01dad5ac82d0569abecf1c1917e63abdf72c482f2213",
+      "src/productivity/CommandBridge.h": "8235b205189b8c07de14bba4fb7c14f49a129063a38f77b942e6cb757f92e6e4",
+      "src/productivity/ProductivityParsers.cpp": "6e7f29fa62d2db47aae0e15b7df8627376bd29e849dafba47174b2089c6b0d21",
+      "src/productivity/ProductivityParsers.h": "8fc280dade5cf2c4452bd2b1e6fab28d862bb88068a929acd84912b21ee2155b",
+      "src/productivity/ProductivityProvider.cpp": "054952a220c03082f529f7d452eba396c606fa4de38f0e8ea9d55494209fa57f",
+      "src/productivity/ProductivityProvider.h": "8185f91ea3c01d653e69f8fdc9eae1d2463cec6a00dd8e74b5c1f70babb6c92c",
+      "src/stack/StackProvider.cpp": "dc78060494c28719c5a30f691495e3fc3242d9a8792c53db474296be0c6031cd",
+      "src/stack/StackProvider.h": "82aef1b5f08957a8f8bb793651648cec3cc6e8eda5920e869b3bac6ced91e1c9",
+      "src/truenas/TruenasParsers.cpp": "5c3745ebbcde6c36fe5b2c1b07ccf3452425475ea20e2e7e47c78884ad54def4",
+      "src/truenas/TruenasParsers.h": "7461c3f844dbcab6e5b2108b2ee040af76ea56f2807ff77fc5b12fada01ee48d",
+      "src/truenas/TruenasProvider.cpp": "cfd90d3947f9db4ef318445183923a7d09927bc0b7a6df58bceb7e6ac9c14d63",
+      "src/truenas/TruenasProvider.h": "288bff5bb1a78067aad87e8cd1c56ac393be18dc0dda54ca354ffc2279771607",
+      "src/usage/UsageParsers.cpp": "fcbb0da7905b9c173b66e0ae63ec5b1d9136e312aefe26781cab095335ee849e",
+      "src/usage/UsageParsers.h": "def3cc65922bc5501624931354e49c25e78b94753c3486e474d14174ea9e8929",
+      "src/usage/UsageProvider.cpp": "6545b310d821a20146af40d4c4fc39a5883390a40ffb34bbe0fcdf1cf366a037",
+      "src/usage/UsageProvider.h": "7b915af089c912fc6e5d2cb134d6805f5c3d2e84bfac45b414d51c5bfd041723",
+      "src/window/NotchWindowController.cpp": "fc3dc27d02756e0776e9322f5c51bc5a6304f4847bfdbba9286a1fea433b9976",
+      "src/window/NotchWindowController.h": "7a435da03e377383e5f33242632cf435612d737711bcf6a9dfb823e0d05b9174",
+      "tests/qml/tst_alertspane.qml": "7913d27b9a95e5777530fded2724da4d6fb93ef9fd34bd80d0b96dc331dbecb6",
+      "tests/qml/tst_deskpage.qml": "191f262956df0aee9177b539e2a740beb5cba1c978fe819df815f9310f9d003d",
+      "tests/qml/tst_phonepage.qml": "1e26e3c7e9753c0bb5862f1c1bad22380ffbd14679caa7a8d2b231bb5d3e8584",
+      "tests/test_desk_linux.py": "9aa6d15c6bea5a47ddc837759baa9641abef77ea09b800e4dd1be2ce7d633021",
+      "tests/tst_agentbridge.cpp": "c39b20d2c38621603ba6e2cb50a15391270ed21a2120c9f231331fdbd14a6af0",
+      "tests/tst_alertspaneqml.cpp": "0cf0b8044831f2f6847d9c52ef2849dc94ec0530ecf3f16e13fca5e20cb51f0c",
+      "tests/tst_alertsparsers.cpp": "5631bcd9d5e7d08910e2780691070ecb56985d4235a3e96fa696f0a073fb6652",
+      "tests/tst_alertsprovider.cpp": "ed85c89a9a4c28136c218007e82bbe1aa270f943413d76a81ca57253d401d163",
+      "tests/tst_clipboardstore.cpp": "87d09e9bdca9a5f67a2e3ebed5f03fa1f2470943c197ee57492307743e839b23",
+      "tests/tst_hardwareparsers.cpp": "32fc112992439253b1b0f9ad93a9fe22134e27ecd86a1a3c2842f2ee44dde81c",
+      "tests/tst_mediaparsers.cpp": "67e64d955837cbf7da55a4e2fc455f12dec33b1d1f680e7d1cae6b3ca2f6bc30",
+      "tests/tst_notchgeometry.cpp": "2d87b40c7db082b7694ace06f0ebed2f16be3a1ae6d616a255ff0e78dc69e8e3",
+      "tests/tst_phoneparsers.cpp": "784b539810c334ee9bbf4654b5771b23619cd4eb139a3da6474312fc3eb3cd82",
+      "tests/tst_productivityparsers.cpp": "496ced44644b9a85275898de233c2f16fac538d406c6b288aca0610993e208c2",
+      "tests/tst_productivityprovider.cpp": "ac08421bda7eb90ea0929c3883b0ee5a20b673901a16bf27384b7f8903ca2fd2",
+      "tests/tst_stackprovider.cpp": "61ea3d2523b863dcfed9bcab2bf3e2f1c0addda318b5008e6ac7d52fc03d441d",
+      "tests/tst_truenasparsers.cpp": "f7010629f98f6b868017b97b0cc9763052209b7ff8203d07b8c5ee85cff9292f",
+      "tests/tst_truenasprovider.cpp": "3cc8038d395a47644ca2f470f05fdc46238dab9feec186aed011f23e9261f5df",
+      "tests/tst_usageparsers.cpp": "32a226050780177fbd0ac802ef1f795b175a95ab0bf6e86e22ae7de005dc5d88"
+    }
+  },
+  "changes": [
+    {
+      "path": "CMakeLists.txt",
+      "before": "77a3224d7a6558639d2bac2cc47dad30e42661c0a4b601591426e6823c21e2f2",
+      "after": "0621d1f6380f5135ed2927fb05eb80979f17fe086566f6cdad7d31756edc3fb3",
+      "bytes": 12184
+    },
+    {
+      "path": "integrations/desk/continuity-client.py",
+      "before": null,
+      "after": "d7ac9918ad44be5d77a810d2d6a505bc8c83bc2a199cce6de6e639eb3ea9e230",
+      "bytes": 28167
+    },
+    {
+      "path": "integrations/desk/continuity-server.py",
+      "before": null,
+      "after": "abe3b55db51f3a9993eec55223c413a56ac7484142350c620d7d8bce74c4aa1c",
+      "bytes": 12161
+    },
+    {
+      "path": "integrations/desk/continuity_store.py",
+      "before": null,
+      "after": "42694adbce02e247fc8c07ec7f2045c959c692e5e6368c43640da852c252bfc3",
+      "bytes": 20863
+    },
+    {
+      "path": "integrations/desk/lan-mouse-control.py",
+      "before": "e6ab28ddb2f5437bd85e137ad3263e9030711e9901fad77fb25a1aa5047db455",
+      "after": "8a48197c4d39da9271bab0a551cf401e02cb033811b57ed695c2ed4bdd87e3cc",
+      "bytes": 13978
+    },
+    {
+      "path": "qml/Main.qml",
+      "before": "bce54c7a9c8f001937a3e0c919c073c59a4dce0dbc758e0c3fa3fae214356caa",
+      "after": "5045e3bb7059e66093336fca31ce3b0aa1e7fddca6496129f624baada00e8ef5",
+      "bytes": 44565
+    },
+    {
+      "path": "qml/components/MusicHome.qml",
+      "before": "7e70c4c998feeab7eb1013d37b6c6a39d9445767eb3cb9a522d15957108fc807",
+      "after": "b7c311dabc60b5054a36bdf5e749bffcb6f051c231ab8a58aa1706ddf7dd5e6c",
+      "bytes": 8252
+    },
+    {
+      "path": "qml/pages/AlertsPane.qml",
+      "before": "0f1984f9fce0c36f99521bb2b553701f4158f1c99973ed7958002fffc8dd7ed6",
+      "after": "9c9f9ab8683abf86b2f767f25a5fd1aa57b19a892d9429db55d6d5a9dce02e9d",
+      "bytes": 24156
+    },
+    {
+      "path": "qml/pages/DeskPage.qml",
+      "before": "6df85b22946b419e944facb735ab8e3fd2217eaa2a13bc659f6b6380ecd0f4b1",
+      "after": "4f65f5884a2d7ce33c5f0737252a31fedb5c6d45206c27a6d720113c42d94e3a",
+      "bytes": 9402
+    },
+    {
+      "path": "qml/pages/ProductivityPage.qml",
+      "before": "ffa537ca88b6d72f66e749a2a286d2fd234972f69879878a803eec99773bd7c4",
+      "after": "af5454457cbcc082b89bdd1b0b4e3d35c733b5e4fb7dcb5c643c06d0cfd084db",
+      "bytes": 2802
+    },
+    {
+      "path": "qml/pages/productivity/ModeSelector.qml",
+      "before": "2dba8a46e4034b287c7c7382f096649fddda9ff8d09dd9c2408b26aeccea9db7",
+      "after": "756ce72e18e894af9617e3e683fd275a98fec603e6f19140fe0fe758f37e0fc8",
+      "bytes": 3827
+    },
+    {
+      "path": "qml/pages/productivity/SharedItemsPane.qml",
+      "before": null,
+      "after": "951d1f80ac09f78215b83730427aa8ed39c707450b0f876feeaa8dc366a7b872",
+      "bytes": 4088
+    },
+    {
+      "path": "scripts/install-user.sh",
+      "before": "238fcb9ca5834253102b826795bbc32cffe5ed56e70cf4e92b6f06a5433e32bf",
+      "after": "fec3386cb119b31604f9bdf0a88c7c71c4a4d34d4a4e9f4a2b5c9929d3cc895b",
+      "bytes": 2359
+    },
+    {
+      "path": "src/agents/AgentBridge.cpp",
+      "before": "176eb4516b50951cce3facd75ca1fa55439246aa8df4273bf794ff2cade3bd55",
+      "after": "27aef9dea569d964002222b8bb745c6ab945759e7e0c62e228bc189f72c60ad9",
+      "bytes": 7465
+    },
+    {
+      "path": "src/alerts/AlertsProvider.cpp",
+      "before": "25cb56d1266f24cec693010bd662a18fb3a240740aa2403ea11381a23cfcf0eb",
+      "after": "500f42dd67187844bd6406bf5322dacd9dd418f7b3f0508db290f5458ee84e67",
+      "bytes": 21976
+    },
+    {
+      "path": "src/alerts/AlertsProvider.h",
+      "before": "f2a3deef6ab68494393f65a17403d19ffdd50c0c0c8fb5736189e48a872fc6cd",
+      "after": "20bf25b19482cf98f764d07b30fd588508eceb84096dee2dd4ea15e6edd59bd5",
+      "bytes": 3550
+    },
+    {
+      "path": "src/continuity/ContinuityProvider.cpp",
+      "before": null,
+      "after": "e7aee177f95d981a509661aa054ce0341af56dde19a0633d25c7ec24988a2fff",
+      "bytes": 24772
+    },
+    {
+      "path": "src/continuity/ContinuityProvider.h",
+      "before": null,
+      "after": "8d6eebbb1f255ed3501f424aebcb261f48021930b7b79e4d2d4dc9b0de0468c0",
+      "bytes": 4349
+    },
+    {
+      "path": "src/desk/DeskProvider.cpp",
+      "before": "4f5692ac7c99c00ec39ea045b9baede2246d57f2f8e3383f601d6dd170ee255d",
+      "after": "3c25a735c0270ab60cd07ff7f7a5ae8854c8879a92b23d9ced7918e9b4cf1485",
+      "bytes": 6389
+    },
+    {
+      "path": "src/desk/DeskProvider.h",
+      "before": "185367eb3a170274e8a77bfca4ce32679c656343a276ec378e36cd58294bcae4",
+      "after": "35bcb5ebf421b0c09cb8980753c82002fc79ffb8497d1319cd82421d39734445",
+      "bytes": 1934
+    },
+    {
+      "path": "src/local/ClipboardStore.cpp",
+      "before": "da85ba9809bafe26bfc9bd2176d9af2ad7997a6b4c18f81c58440684db903fd1",
+      "after": "0f93b64b93c1084a90b551f00d990a0404f84cd2c2af176b0456810fe43294ae",
+      "bytes": 26987
+    },
+    {
+      "path": "src/local/ClipboardStore.h",
+      "before": "6505730605bd7000407b14f35d9eda672278ee3398a1a22bd244801c09bf7bc2",
+      "after": "20f1c226b2a9503830d54d8ee56ef7e939e6aa10cdc1d0300d7a864abfbf152e",
+      "bytes": 2628
+    },
+    {
+      "path": "src/local/WaylandClipboardWriter.cpp",
+      "before": null,
+      "after": "f15c4cb8572a6a00c538fae1e37ed7fd93d143b8d350a942c054e18a39b40362",
+      "bytes": 3964
+    },
+    {
+      "path": "src/local/WaylandClipboardWriter.h",
+      "before": null,
+      "after": "26fb4f18dc85ca948968160fe24b2eb0ab9c252df88cdfaf38f41e7b61e7eaf7",
+      "bytes": 1097
+    },
+    {
+      "path": "src/main.cpp",
+      "before": "e6eb1252568582b65b0a1c189a6561760540fc25a2f47c735e542350037797de",
+      "after": "b28226b41de1365170517a4ced821e34529e8bb957b8dadd91e07bcd487717c9",
+      "bytes": 18672
+    },
+    {
+      "path": "src/productivity/ProductivityParsers.cpp",
+      "before": "6e7f29fa62d2db47aae0e15b7df8627376bd29e849dafba47174b2089c6b0d21",
+      "after": "d6c83d326a97ebf5e400f778ad6258ae446d28edc1c19bccb98dba5d130769e1",
+      "bytes": 2552
+    },
+    {
+      "path": "src/productivity/ProductivityProvider.cpp",
+      "before": "054952a220c03082f529f7d452eba396c606fa4de38f0e8ea9d55494209fa57f",
+      "after": "7aee6462b437e9ec2d107903248712ab0498463d7ee82a2e037224556607b21c",
+      "bytes": 58981
+    },
+    {
+      "path": "src/productivity/ProductivityProvider.h",
+      "before": "8185f91ea3c01d653e69f8fdc9eae1d2463cec6a00dd8e74b5c1f70babb6c92c",
+      "after": "8903ac615a876b18fe6af49a04ba9b2a2df0500d6cc85d9f08dd33d244271dc4",
+      "bytes": 8820
+    },
+    {
+      "path": "tests/continuity_fixture.py",
+      "before": null,
+      "after": "e1b8b262b05f863070d17767e914a2553f346a306cdf8d853414e38449d7f275",
+      "bytes": 2031
+    },
+    {
+      "path": "tests/qml/tst_sharedcontinuity.qml",
+      "before": null,
+      "after": "d582ac2428ef25c0b77dc493285d459bccb79b852ad2427b8e5b63282a7e8601",
+      "bytes": 5685
+    },
+    {
+      "path": "tests/tst_continuity.cpp",
+      "before": null,
+      "after": "846eb944929f1eb8b8119b3fd32e80a63e50c6ff54e37ee3aef2ffd839475525",
+      "bytes": 37283
+    },
+    {
+      "path": "tests/tst_productivityprovider.cpp",
+      "before": "ac08421bda7eb90ea0929c3883b0ee5a20b673901a16bf27384b7f8903ca2fd2",
+      "after": "7fe940ab41b804da0ba00039e62dfc72177f8f110ce59076f7956919326241cf",
+      "bytes": 30850
+    },
+    {
+      "path": "tests/wayland_copy_fixture.py",
+      "before": null,
+      "after": "44b0efaa2ef628d4207907718371a6e3b8174d42fc1d5b77db299346a0167a18",
+      "bytes": 1238
+    }
+  ]
+}

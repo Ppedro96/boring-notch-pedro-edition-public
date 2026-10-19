@@ -15,6 +15,7 @@ final class PedroCaptureManager: ObservableObject {
     @Published private(set) var feedback: String?
     @Published private(set) var isError = false
     @Published private(set) var isSaving = false
+    var onSaved: ((PedroCaptureDraft, URL) -> Void)?
     private let defaults: UserDefaults
     let store: PedroCaptureStore
 
@@ -43,6 +44,7 @@ final class PedroCaptureManager: ObservableObject {
         defer { isSaving = false }
         do {
             let url = try await Task.detached(priority: .userInitiated) { try store.save(snapshot) }.value
+            onSaved?(snapshot, url)
             recent.insert(url, at: 0)
             recent = Array(recent.prefix(15))
             defaults.set(recent.map(\.path), forKey: "pedroCaptureRecent")

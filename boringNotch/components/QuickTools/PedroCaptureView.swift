@@ -4,6 +4,7 @@ import SwiftUI
 struct PedroCaptureView: View {
     @EnvironmentObject private var vm: BoringViewModel
     @ObservedObject private var manager = PedroCaptureManager.shared
+    @ObservedObject private var continuity = PedroContinuityProvider.shared
     @FocusState private var editorFocused: Bool
     @State private var focusWindow: BoringNotchSkyLightWindow?
     @State private var holdingOpen = false
@@ -32,6 +33,15 @@ struct PedroCaptureView: View {
                     .textFieldStyle(.plain)
                     .accessibilityLabel("Título do link")
                 Menu {
+                    ForEach(continuity.items("links")) { item in
+                        Menu(item.text("title") + " · " + item.origin) {
+                            Text(item.text("note"))
+                            Button("Abrir link") { if let url = URL(string: item.text("url")), ["http", "https"].contains(url.scheme ?? "") { NSWorkspace.shared.open(url) } }
+                            if item.payload["blob"] != nil { Button("Baixar Markdown verificado") { continuity.openShared(item, topic: "links") } }
+                            Button("Remover da lista compartilhada") { continuity.remove(topic: "links", key: item.id) }
+                        }
+                    }
+                    Divider()
                     if manager.recent.isEmpty { Text("Nenhuma captura salva") }
                     ForEach(manager.recent, id: \.path) { url in
                         Button(manager.title(for: url)) { manager.open(url) }
@@ -102,7 +112,7 @@ struct PedroCaptureView: View {
     }
 
     private var statusText: String {
-        manager.feedback ?? (hasError ? "Link inválido · HTTP ou HTTPS" : "Inbox · Para analisar e catalogar")
+        continuity.feedback ?? manager.feedback ?? (hasError ? "Link inválido · HTTP ou HTTPS" : "Inbox · Para analisar e catalogar")
     }
 
     private func acquireFocus(_ window: NSWindow) {

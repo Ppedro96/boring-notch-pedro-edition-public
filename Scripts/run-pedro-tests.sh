@@ -8,6 +8,13 @@ trap 'rm -R "$test_output"' EXIT
 
 cd "$repo_root"
 
+swiftc -parse-as-library \
+  boringNotch/models/PedroContinuityModels.swift \
+  boringNotch/Providers/PedroContinuityTransport.swift \
+  Tests/PedroContinuityTests.swift \
+  -o "$test_output/PedroContinuityTests"
+"$test_output/PedroContinuityTests"
+
 /usr/bin/python3 Tests/GeminiAppsUsageTests.py
 
 swiftc -parse-as-library \

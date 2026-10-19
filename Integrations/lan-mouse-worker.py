@@ -22,6 +22,17 @@ TASK = 'InsightNotchLanMouse'
 AGENT = 'local.insight-notch.lan-mouse'
 
 
+def windows():
+    return os.name == 'nt'
+
+
+def receiver():
+    spec = importlib.util.spec_from_file_location('windows_receiver', Path(__file__).with_name('windows-receiver.py'))
+    result = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(result)
+    return result
+
+
 def session_agent():
     spec = importlib.util.spec_from_file_location('macos_session_agent', Path(__file__).with_name('macos-session-agent.py'))
     result = importlib.util.module_from_spec(spec)
@@ -47,7 +58,7 @@ def load(path):
 def binary():
     if sys.platform == 'darwin':
         return Path('/Applications/Lan Mouse.app/Contents/MacOS/lan-mouse')
-    return BASE/('bin/lan-mouse.exe' if os.name == 'nt' else 'lan-mouse')
+    return BASE/('bin/lan-mouse.exe' if windows() else 'lan-mouse')
 
 
 def desktop_env():
@@ -89,7 +100,7 @@ def prepare_permission_cache():
 
 def ipc(request='Sync', timeout=1.0):
     env = desktop_env()
-    if os.name == 'nt':
+    if windows():
         connection = socket.create_connection(('127.0.0.1', 5252), timeout=timeout)
     else:
         path = (Path.home()/'Library/Caches' if sys.platform == 'darwin'
@@ -131,11 +142,11 @@ def fingerprint():
 
 def validate_profile(profile):
     peers = profile.get('peers', [])
-    if len(peers) != 2 or len({p['id'] for p in peers}) != 2:
-        raise ValueError('Exactly two distinct peers are required')
-    if {p['position'] for p in peers} != {'left', 'right'}:
+    if not 1 <= len(peers) <= 2 or len({p['id'] for p in peers}) != len(peers):
+        raise ValueError('One or two distinct peers are required')
+    if not {p['position'] for p in peers} <= {'left', 'right'} or len({p['position'] for p in peers}) != len(peers):
         raise ValueError('Only one peer per edge is allowed')
-    if len({p['fingerprint'].lower() for p in peers}) != 2:
+    if len({p['fingerprint'].lower() for p in peers}) != len(peers):
         raise ValueError('Peer certificates must be distinct')
     for key, values in [('capture_backend', ('layer-shell', 'input-capture-portal')),
                         ('emulation_backend', ('libei', 'xdp'))]:
@@ -158,6 +169,10 @@ def validate_profile(profile):
                 raise ValueError('Peer addresses must be distinct')
             addresses.add(ip)
     return profile
+
+
+def profile_digest():
+    return hashlib.sha256(json.dumps(load(BASE/'profile.json'), sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
 def config_text(profile=None, active=False):
@@ -191,7 +206,7 @@ def command(bootstrap=False):
         result += ['--capture-backend', 'dummy', '--emulation-backend', 'dummy']
     elif sys.platform == 'darwin':
         result += ['--capture-backend', 'mac-os', '--emulation-backend', 'mac-os']
-    elif os.name == 'nt':
+    elif windows():
         result += ['--capture-backend', 'windows', '--emulation-backend', 'windows']
     return result+['daemon']
 
@@ -213,7 +228,7 @@ def process_identity(pid):
         if str(binary()) not in r.stdout or str(BASE/'config.toml') not in r.stdout:
             return None
         return r.stdout[:24]
-    if os.name == 'nt':
+    if windows():
         text = powershell("$p=Get-CimInstance Win32_Process -Filter "+psquote('ProcessId='+str(pid))+"; "
                           +"if($p -and $p.ExecutablePath -eq "+psquote(binary())
                           +" -and $p.CommandLine.Contains("+psquote(BASE/'config.toml')+")){"
@@ -224,7 +239,8 @@ def process_identity(pid):
 
 def powershell(script):
     r = subprocess.run(['powershell', '-NoProfile', '-EncodedCommand',
-                        base64.b64encode(script.encode('utf-16le')).decode()], capture_output=True, text=True, timeout=20)
+                        base64.b64encode(script.encode('utf-16le')).decode()], capture_output=True, text=True, timeout=20,
+                       creationflags=subprocess.CREATE_NO_WINDOW if windows() else 0)
     if r.returncode:
         raise RuntimeError(r.stderr[-800:])
     return r.stdout
@@ -237,14 +253,33 @@ def psquote(value):
 def stop():
     if sys.platform == 'darwin':
         session_agent().stop(AGENT, command())
-    if os.name == 'nt':
-        # Task termination alone leaves its native child alive. Match both executable and config.
-        powershell("$owned=@(Get-CimInstance Win32_Process -Filter \"Name='lan-mouse.exe'\" | Where-Object { $_.ExecutablePath -eq "
-                   +psquote(binary())+" -and $_.CommandLine.Contains("+psquote(BASE/'config.toml')+") }); "
-                   +"Stop-ScheduledTask -TaskName "+psquote(TASK)+" -ErrorAction SilentlyContinue; "
-                   +"foreach($p in $owned){$live=Get-CimInstance Win32_Process -Filter ('ProcessId='+$p.ProcessId); "
-                   +"if($live -and $live.CreationDate -eq $p.CreationDate -and $live.ExecutablePath -eq $p.ExecutablePath){"
-                   +"Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue; Wait-Process -Id $p.ProcessId -Timeout 5 -ErrorAction SilentlyContinue}}; exit 0")
+    if windows():
+        with receiver().lifecycle_lock(BASE):
+            # Fence respawn before stopping the supervisor. Enumerate AFTER task
+            # termination so a child created just before the fence cannot escape.
+            save(BASE/'receiver-control.json', {})
+            state = load(BASE/'session.json')
+            state['receiver'] = dict(state='stopping', restarts=state.get('receiver', {}).get('restarts', 0))
+            save(BASE/'session.json', state)
+            try:
+                powershell("$ErrorActionPreference='Stop'; "
+                           +"if(Get-ScheduledTask -TaskName "+psquote(TASK)+" -ErrorAction SilentlyContinue){"
+                           +"Stop-ScheduledTask -TaskName "+psquote(TASK)+"}; "
+                           +"$owned=@(Get-CimInstance Win32_Process -Filter \"Name='lan-mouse.exe'\" | Where-Object { $_.ExecutablePath -eq "
+                           +psquote(binary())+" -and $_.CommandLine.Contains("+psquote(BASE/'config.toml')+") }); "
+                           +"foreach($p in $owned){$live=Get-CimInstance Win32_Process -Filter ('ProcessId='+$p.ProcessId); "
+                           +"if($live -and $live.CreationDate -eq $p.CreationDate -and $live.ExecutablePath -eq $p.ExecutablePath){"
+                           +"Stop-Process -Id $p.ProcessId -Force; "
+                           +"if(Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue){Wait-Process -Id $p.ProcessId -Timeout 5}}}; "
+                           +"$remaining=@(Get-CimInstance Win32_Process -Filter \"Name='lan-mouse.exe'\" | Where-Object { $_.ExecutablePath -eq "
+                           +psquote(binary())+" -and $_.CommandLine.Contains("+psquote(BASE/'config.toml')+") }); "
+                           +"if($remaining.Count){throw 'Owned input child still running'}")
+            except Exception:
+                state['receiver'].update(state='failed', error='stop_unconfirmed')
+                save(BASE/'session.json', state)
+                raise
+            save(BASE/'session.json', dict(receiver=dict(state='stopped', restarts=0)))
+        return dict(ok=True, running=False)
     else:
         state = load(BASE/'session.json')
         pid = state.get('pid')
@@ -260,12 +295,8 @@ def stop():
     return dict(ok=True, running=False)
 
 
-def supervise(bootstrap=False):
-    with (BASE/'daemon.log').open('a', encoding='utf-8') as log:
-        child = subprocess.Popen(command(bootstrap), stdin=subprocess.DEVNULL, stdout=log, stderr=log,
-                                 creationflags=subprocess.CREATE_NO_WINDOW, env=desktop_env(), cwd=binary().parent)
-        save(BASE/'session.json', dict(pid=child.pid, identity=process_identity(child.pid), bootstrap=bootstrap))
-        sys.exit(child.wait())
+def supervise(bootstrap=False, generation=None):
+    sys.exit(receiver().Supervisor(sys.modules[__name__], generation, bootstrap).run())
 
 
 def start(bootstrap=False):
@@ -281,28 +312,33 @@ def start(bootstrap=False):
     if not binary().is_file():
         raise ValueError('Lan Mouse is not installed')
     prepare_permission_cache()
-    write_config(False)
-    if os.name == 'nt':
-        pythonw = Path(sys.executable).with_name('pythonw.exe')
-        args = subprocess.list2cmdline(['-I', str(Path(__file__).resolve()), '--supervise']+(['--bootstrap'] if bootstrap else []))
-        powershell("$ErrorActionPreference='Stop'; $a=New-ScheduledTaskAction -Execute "+psquote(pythonw)
-                   +" -Argument "+psquote(args)+" -WorkingDirectory "+psquote(BASE)+"; "
-                   +"$p=New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited; "
-                   +"$s=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero); "
-                   +"Register-ScheduledTask -TaskName "+psquote(TASK)+" -Action $a -Principal $p -Settings $s -Force | Out-Null; "
-                   +"Start-ScheduledTask -TaskName "+psquote(TASK))
+    if windows():
+        with receiver().lifecycle_lock(BASE):
+            write_config(False)
+            generation = receiver().begin(sys.modules[__name__], bootstrap)
+            pythonw = Path(sys.executable).with_name('pythonw.exe')
+            args = subprocess.list2cmdline(['-I', str(Path(__file__).resolve()), '--supervise',
+                                           '--generation', generation]+(['--bootstrap'] if bootstrap else []))
+            powershell("$ErrorActionPreference='Stop'; $a=New-ScheduledTaskAction -Execute "+psquote(pythonw)
+                       +" -Argument "+psquote(args)+" -WorkingDirectory "+psquote(BASE)+"; "
+                       +"$p=New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited; "
+                       +"$s=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero); "
+                       +"Register-ScheduledTask -TaskName "+psquote(TASK)+" -Action $a -Principal $p -Settings $s -Force | Out-Null; "
+                       +"Start-ScheduledTask -TaskName "+psquote(TASK))
     elif sys.platform == 'darwin':
+        write_config(False)
         pid = session_agent().start(AGENT, command(bootstrap), BASE, BASE/'daemon.log', dict(RUST_LOG='info'))
-        save(BASE/'session.json', dict(pid=pid, identity=process_identity(pid), bootstrap=bootstrap))
+        save(BASE/'session.json', dict(pid=pid, identity=process_identity(pid), bootstrap=bootstrap, profileDigest=profile_digest()))
     else:
+        write_config(False)
         with (BASE/'daemon.log').open('a') as log:
             child = subprocess.Popen(command(bootstrap), stdin=subprocess.DEVNULL, stdout=log, stderr=log,
                                      env=desktop_env(), start_new_session=True)
         time.sleep(.15)
-        save(BASE/'session.json', dict(pid=child.pid, identity=process_identity(child.pid), bootstrap=bootstrap))
+        save(BASE/'session.json', dict(pid=child.pid, identity=process_identity(child.pid), bootstrap=bootstrap, profileDigest=profile_digest()))
     deadline = time.monotonic()+8
     while time.monotonic() < deadline:
-        current = status()
+        current = status(starting_generation=generation) if windows() else status()
         if current['running']:
             if (BASE/'identity.pem').exists():
                 (BASE/'identity.pem').chmod(0o600)
@@ -311,22 +347,48 @@ def start(bootstrap=False):
     raise RuntimeError('Lan Mouse failed to start; inspect its private runtime log')
 
 
-def status():
+def status(starting_generation=None):
     token = BASE/'cache/lan-mouse/remote-desktop.token'
     if sys.platform.startswith('linux') and token.is_file():
         token.chmod(0o600)
     result = dict(ok=True, installed=binary().is_file(), running=False,
                   capture=False, emulation=False, fingerprint=fingerprint(), peers=[])
+    state = load(BASE/'session.json')
+    if windows():
+        result['receiver'] = state.get('receiver', dict(state='unknown', restarts=0))
     try:
         events = ipc()
     except OSError:
         return result
-    state = load(BASE/'session.json')
+    latest = load(BASE/'session.json')
+    if windows() and starting_generation is not None:
+        control = load(BASE/'receiver-control.json')
+        if any(s.get('generation') != starting_generation for s in (state, latest, control)):
+            raise RuntimeError('Receiver startup was cancelled or changed')
+        initial = (not state.get('pid') and not state.get('identity') and
+                   state.get('receiver') == dict(state='starting', restarts=0))
+        if initial and latest.get('receiver') in (dict(state='starting', restarts=0), dict(state='ready', restarts=0)):
+            if latest.get('pid'):
+                if not latest.get('identity') or process_identity(latest['pid']) != latest['identity']:
+                    raise RuntimeError('Lan Mouse process ownership changed')
+            elif latest.get('receiver', {}).get('state') != 'starting' or latest.get('identity'):
+                raise RuntimeError('Lan Mouse process ownership changed')
+            # Only this start's pre-PID publication may be incomplete. Discard
+            # its IPC data and observe again within start's existing deadline.
+            return result
+    if windows() and any(latest.get(k) != state.get(k) for k in ('pid', 'generation', 'identity')):
+        raise RuntimeError('Receiver session changed during status')
+    state = latest
+    if windows():
+        result['receiver'] = state.get('receiver', dict(state='unknown', restarts=0))
     if not state.get('pid'):
         raise RuntimeError('Another Lan Mouse instance owns the local IPC socket')
     if not state.get('identity') or process_identity(state['pid']) != state['identity']:
         raise RuntimeError('Lan Mouse process ownership changed')
     result['running'] = True
+    # A legacy session has no launch evidence. Reading a newly written profile
+    # alone must never confirm what an older running daemon actually loaded.
+    result['profileDigest'] = state.get('profileDigest')
     for event in events:
         if not isinstance(event, dict):
             continue
@@ -340,9 +402,40 @@ def status():
             profiles = load(BASE/'profile.json').get('peers', [])
             def ident(config):
                 return next((p['id'] for p in profiles if set(p['ips']) & set(config['fix_ips'])), config['hostname'])
-            result['peers'] = [dict(id=ident(c), active=s['active'], alive=s['alive'], handle=h)
+            result['peers'] = [dict(id=ident(c), position=c['pos'].lower(), active=s['active'], alive=s['alive'], handle=h)
                                for h, c, s in event['Enumerate']]
     return result
+
+
+def windows_activation(active):
+    helper = receiver()
+    observed = load(BASE/'session.json')
+    current = status()
+    with helper.lifecycle_lock(BASE):
+        control = load(BASE/'receiver-control.json')
+        state = load(BASE/'session.json')
+        if ((state.get('pid'), state.get('generation')) != (observed.get('pid'), observed.get('generation')) or
+                not control.get('generation') or control['generation'] != state.get('generation')):
+            raise RuntimeError('Receiver session is not current')
+        if helper.protected(sys.modules[__name__]) != control.get('protected'):
+            raise RuntimeError('Receiver protected state changed')
+        if not active:
+            control['active'] = False
+            save(BASE/'receiver-control.json', control)
+        if not active and not current['running']:
+            return current
+        if active and not (current['capture'] and current['emulation'] and
+                           current['receiver']['state'] == 'ready'):
+            raise RuntimeError('Input permissions/backends or receiver are not ready')
+        profile = validate_profile(load(BASE/'profile.json'))
+        if not helper.exact_peers(current, profile):
+            raise RuntimeError('Native peers differ from configured profile')
+        # Save intent before IPC: a lost reply may still mean active input. The
+        # stop fence clears this intent even if recovery is already underway.
+        control['active'] = active
+        save(BASE/'receiver-control.json', control)
+        helper.activate(sys.modules[__name__], control, state, current['peers'], active)
+    return status()
 
 
 def main(request):
@@ -351,6 +444,11 @@ def main(request):
     if action == 'status':
         return status()
     if action == 'configure':
+        if windows():
+            with receiver().lifecycle_lock(BASE):
+                save(BASE/'profile.json', validate_profile(request['profile']))
+                write_config(False)
+            return dict(ok=True)
         save(BASE/'profile.json', validate_profile(request['profile']))
         write_config(False)
         return dict(ok=True)
@@ -365,6 +463,8 @@ def main(request):
         ipc('EnableCapture', .15)
         return status()
     if action in ('activate', 'deactivate'):
+        if windows():
+            return windows_activation(action == 'activate')
         current = status()
         active = action == 'activate'
         if active and not (current['capture'] and current['emulation']):
@@ -377,7 +477,8 @@ def main(request):
 
 if __name__ == '__main__':
     if '--supervise' in sys.argv:
-        supervise('--bootstrap' in sys.argv)
+        generation = sys.argv[sys.argv.index('--generation')+1] if '--generation' in sys.argv else None
+        supervise('--bootstrap' in sys.argv, generation)
     else:
         try:
             print(json.dumps(main(json.load(sys.stdin))))

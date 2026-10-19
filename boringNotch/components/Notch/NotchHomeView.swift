@@ -13,13 +13,19 @@ import SwiftUI
 // MARK: - Music Player Components
 
 struct MusicPlayerView: View {
+    @ObservedObject private var continuity = PedroContinuityProvider.shared
     @EnvironmentObject var vm: BoringViewModel
     let albumArtNamespace: Namespace.ID
 
     var body: some View {
-        HStack {
-            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
-            MusicControlsView().drawingGroup().compositingGroup()
+        VStack(alignment: .leading, spacing: 2) {
+            PedroMediaHostPicker()
+            if continuity.mediaHost == "local" {
+                HStack {
+                    AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).padding(.all, 5)
+                    MusicControlsView().drawingGroup().compositingGroup()
+                }
+            } else { PedroRemoteMediaView() }
         }
     }
 }

@@ -46,6 +46,42 @@ class DeskTests(unittest.TestCase):
     def test_scp_only_generated_remote_paths(self):
         for source in ['C:/Users/user/Downloads/user.txt','/tmp/test','/home/user/.local/share/insight-notch/jobs/'+('a'*32)+'/x;bad']:
             with self.assertRaises(ValueError):h.scp('x99',source,'/tmp/local')
+    def test_worker_generated_job_paths_match_remote_scp_contract_for_every_role(self):
+        from unittest.mock import Mock
+        roles=(('mac','/Users/example'),('x99','/home/example'),('alienware','C:/Users/example'))
+        for host,home in roles:
+            with self.subTest(host=host),patch.object(Path,'home',return_value=Path(home)):
+                producer=module('worker_path_contract_'+host,'desk-worker.py')
+            # Exercise the actual prepare producer with only directory creation
+            # mocked: no existing runtime/job data is read or changed.
+            with patch.object(Path,'mkdir'):
+                generated=producer.main(dict(command='prepare',id='a'*32,extension='.wav'))['path']
+            self.assertEqual(generated,str(producer.jobdir('a'*32)/'input.wav'))
+            self.assertEqual(producer.BASE,Path(home)/'.local/share/insight-notch')
+            with patch.object(h,'LOCAL_HOST','x99' if host=='mac' else 'mac'),patch.object(h.subprocess,'run',return_value=Mock(returncode=0)) as run:
+                h.scp(host,'/tmp/local-input.wav',generated,upload=True)
+                self.assertIn(host+':'+generated,run.call_args.args[0])
+                output=str(producer.jobdir('a'*32)/'result.m4a')
+                h.scp(host,output,'/tmp/local-output.m4a')
+                self.assertIn(host+':'+output,run.call_args.args[0])
+
+    def test_mac_scp_rejects_script_root_traversal_other_roles_and_shell_paths(self):
+        from unittest.mock import Mock
+        root='/Users/example/.local/share/insight-notch/jobs/'+'a'*32+'/'
+        invalid=[root+'.',root+'..',root+'../result.m4a',root+'nested/result.m4a',
+                 root+'result;bad.m4a',root+'result$(bad).m4a',root+'result\n.m4a',
+                 root+'result with space.m4a',root.replace('a'*32,'g'*32)+'result.m4a',
+                 root.replace('/insight-notch/','/pedro-notch/')+'result.m4a',
+                 root.replace('/Users/example/','/home/example/')+'result.m4a',
+                 root.replace('/Users/example/','C:/Users/example/')+'result.m4a',
+                 '/Users/example/Downloads/result.m4a']
+        with patch.object(h,'LOCAL_HOST','x99'),patch.object(h.subprocess,'run',return_value=Mock(returncode=0)) as run:
+            for remote in invalid:
+                for upload in (False,True):
+                    with self.subTest(remote=remote,upload=upload),self.assertRaises(ValueError):
+                        h.scp('mac','/tmp/local' if upload else remote,remote if upload else '/tmp/local',upload=upload)
+            run.assert_not_called()
+
     def test_windows_generated_path_normalization(self):
         from unittest.mock import Mock
         with patch.object(h.subprocess,'run',return_value=Mock(returncode=0)) as call:

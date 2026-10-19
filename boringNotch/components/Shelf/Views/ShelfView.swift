@@ -10,6 +10,7 @@ import AppKit
 
 struct ShelfView: View {
     @EnvironmentObject var vm: BoringViewModel
+    @ObservedObject private var continuity = PedroContinuityProvider.shared
     @StateObject var tvm = ShelfStateViewModel.shared
     @StateObject var selection = ShelfSelectionModel.shared
     @StateObject private var quickLookService = QuickLookService()
@@ -25,6 +26,7 @@ struct ShelfView: View {
                     handleDrop(providers: providers)
                 }
         }
+        .overlay(alignment: .bottom) { PedroContinuityFeedback() }
         // Bind Quick Look to shelf selection
         .onChange(of: selection.selectedIDs) {
             updateQuickLookSelection()
@@ -79,7 +81,7 @@ struct ShelfView: View {
 
     var content: some View {
         Group {
-            if tvm.isEmpty {
+            if tvm.isEmpty && continuity.items("shelf").isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "tray.and.arrow.down")
                         .symbolVariant(.fill)
@@ -95,6 +97,9 @@ struct ShelfView: View {
             } else {
                 ScrollView(.horizontal) {
                     HStack(spacing: spacing) {
+                        ForEach(continuity.items("shelf").filter { shared in !tvm.items.contains { $0.id.uuidString == shared.id } }) { item in
+                            PedroSharedItemCard(item: item, topic: "shelf")
+                        }
                         ForEach(tvm.items) { item in
                             ShelfItemView(item: item)
                                 .environmentObject(quickLookService)

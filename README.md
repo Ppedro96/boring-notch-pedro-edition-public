@@ -31,6 +31,27 @@ Esta documentação explica os recursos, a arquitetura e as etapas de configura�
 
 Os módulos são opcionais. Recursos locais funcionam sem configurar computadores remotos ou dispositivos móveis. A versão atual conserva tabelas de perfis no código; configurar outro ambiente exige adaptar essas tabelas, e não apenas mudar rótulos na interface.
 
+## Continuidade entre computadores
+
+A continuidade opcional reúne oito recursos nas áreas nativas existentes do Mac e do Linux. Fica desativada sem configuração privada explícita. O Windows pode participar da Mesa e executar trabalhos quando seus componentes correspondentes estiverem preparados; isso não implica uma interface nativa Windows para os oito recursos.
+
+| Recurso | Comportamento compartilhado |
+| --- | --- |
+| Mesa | Disposição linear comum, origem física do teclado e estados separados de pronto, conectado e pendente. |
+| Clipboard | Texto UTF-8 exato e PNG original, histórico, fixação e remoção comuns, com origem e proteção contra eco. |
+| Shelf | Novos arquivos, textos e links; recebimento sob demanda com verificação de integridade. |
+| Processamento | Fila durável com origem, progresso, cancelamento solicitado, repetição e resultado verificado localmente. |
+| Mídia | Seleção explícita de computador; ações remotas curtas e válidas somente para o destino escolhido. |
+| Links e capturas | Novas notas salvas localmente preservam título e observação, sem indexação automática. |
+| Alertas | Reconhecimento comum somente do mesmo alerta e do mesmo estado; mudanças reaparecem. |
+| Tarefas de agentes | Resumos, origem, estado, progresso informado e resultado opcional, sem controles remotos de permissões. |
+
+O coordenador Linux usa o acesso SSH existente e mensagens por entrada e saída padrão; não exige um novo serviço público. Cada aplicação mantém uma ponte persistente, cache privado e reconexão independente da entrada, do espelhamento Android e das tarefas já iniciadas. Alterações de metadados podem aguardar reconexão; arquivos ainda não recebidos, novos trabalhos e controles de mídia dependem de conexão.
+
+A configuração associa funções privadas de coordenador, cliente Mac, cliente Linux e executor Windows opcional. Identidades, destinos, credenciais, locais permitidos e armazenamento pertencem à instalação e ficam fora da documentação compartilhada. [O guia de continuidade](Integrations/CONTINUITY.md) descreve preparação, privacidade, recuperação e limites.
+
+Os recursos locais continuam disponíveis: mídia e Mixer do Mac, mídia nativa do Linux, histórico local, Shelf, notas locais e ações locais dos agentes. Conteúdo privado de clipboard, senhas e referências locais a arquivos não são compartilhados. Histórico antigo não é enviado automaticamente, e conteúdo recebido do cache não substitui automaticamente o clipboard atual. Resumos de agentes excluem prompts, transcrições, credenciais e respostas de permissão.
+
 ## Como a solução foi organizada
 
 O painel macOS coordena a interface. Helpers independentes cuidam das conexões, coleta de dados e operações demoradas, mantendo o trabalho fora da thread principal.
@@ -154,13 +175,13 @@ A seleção de destino pode ser automática ou explícita. A transcrição atual
 
 O servidor do Deskflow escuta somente na interface local e seus clientes chegam por túneis SSH. O Lan Mouse usa um canal direto criptografado, com autorização por certificado. Um processo aberto não prova que o cliente esteja conectado.
 
-Na integração bidirecional, Control+Option/Alt+Home devolve o controle à origem física daquele teclado. No modo anterior, Control+Option+Home solicita o retorno ao computador macOS. A interface indica o comportamento ativo. As bordas externas conectam diretamente as duas extremidades da disposição, formando um ciclo sem enviar eventos para dois destinos ao mesmo tempo.
+Na integração bidirecional, Control+Option/Alt+Home devolve o controle à origem física daquele teclado. No modo anterior, Control+Option+Home solicita o retorno ao computador macOS. A interface indica o comportamento ativo. A disposição é linear: somente as bordas internas conectam computadores vizinhos, e as bordas externas permanecem locais. Quando o computador central está indisponível, uma solicitação explícita de iniciar ou alterar o layout conecta o par disponível pelas bordas internas; ao retornar, outra solicitação reconcilia a linha completa.
 
 Conectar/Pausar controla os componentes dos três sistemas. Pausar encerra os processos pertencentes à sessão, liberando teclas e ponteiros, mas preserva as identidades e autorizações salvas. Permissões revogadas, atualizações do sistema ou a troca de sessão gráfica podem exigir nova autorização.
 
 No macOS, os mecanismos de entrada são iniciados pelo gerenciador da sessão gráfica, usando a autorização própria dos aplicativos. Assim, uma recompilação do Notch não substitui a identidade autorizada desses mecanismos. O token do KDE é mantido em armazenamento privado persistente e renovado após cada restauração bem-sucedida.
 
-O Lan Mouse não fornece sincronização de clipboard. O canal Deskflow permanece conectado, mas seu clipboard depende da tela ativa no próprio Deskflow; a malha bidirecional de entrada ainda não garante copiar/colar entre todos os destinos.
+O Lan Mouse não fornece sincronização de clipboard. A continuidade opcional oferece seu próprio canal de texto e PNG entre os clientes nativos Mac e Linux. Sem ela, o clipboard do Deskflow depende da tela ativa no próprio Deskflow; a malha de entrada, sozinha, não garante copiar/colar entre todos os destinos. O Windows não ganha um cliente desse clipboard comum apenas por participar da Mesa.
 
 No Windows, o cliente usa uma tarefa na sessão gráfica do usuário com um iniciador sem console. Não é necessário manter uma janela de terminal aberta. O iniciador acompanha o processo para que pausar a sessão também encerre o cliente corretamente.
 
