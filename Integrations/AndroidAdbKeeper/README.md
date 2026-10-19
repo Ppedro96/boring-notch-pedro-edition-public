@@ -1,44 +1,40 @@
-# Depuração Insight — Android ADB Keeper
+# Recuperação de depuração sem fio
 
-App local separado, instalado somente no Tab S8+ SM-X806B, Android16. Mantém a ROM e os pares ADB existentes. Não usa root, acessibilidade, Internet, localização ou porta5555.
+Helper Android opcional que tenta recuperar a depuração sem fio após alterações de conectividade. Mantém a ROM e os pareamentos existentes. Esta documentação explica o mecanismo e a configuração sem comandos, caminhos, identificadores de instalação ou dados de equipamentos.
 
-## Comportamento
+## Como funciona
 
-Serviço foreground `specialUse` observa redes com transporte Wi-Fi e `Settings.Global.adb_wifi_enabled`. Após mudança aguarda2,5s; se depuração sem fio estiver desligada com Wi-Fi disponível, opções de desenvolvedor e depuração USB ainda ligadas, solicita `adb_wifi_enabled=1`. O próprio Android valida a rede e exibe seu diálogo quando necessário. Nenhuma rede ou computador é aprovado automaticamente.
+Um serviço visível observa mudanças de rede e o estado da depuração sem fio. Após uma mudança, aguarda a estabilização antes de tentar reativar a configuração.
 
-No máximo três tentativas por evento/rede, intervalo mínimo8s; após sucesso estável o contador reinicia. Heartbeat60s funciona como fallback, sem wakelock. O botão Pausar do app/notificação desativa a recuperação e preserva a conexão ADB atual. Desligar as opções de desenvolvedor ou a depuração USB também impede recuperação. START_STICKY e receiver BOOT_COMPLETED/MY_PACKAGE_REPLACED retomam apenas se a opção estiver ativa. Reboot real não testado; retomada após atualização do APK confirmada.
+A recuperação só é solicitada quando existe Wi-Fi disponível, as opções de desenvolvedor e de depuração necessárias continuam ativas e o usuário não pausou o helper. O Android mantém a responsabilidade por confiar na rede e autorizar o computador.
 
-## Permissões e instalação
+As tentativas são limitadas por evento e possuem intervalo mínimo. Um ciclo periódico complementa os eventos de rede, sem manter um wakelock contínuo. O helper tem retomada configurada após inicialização ou atualização do app, sujeita às restrições do sistema.
 
-`WRITE_SECURE_SETTINGS` é ampla e concedida uma vez por ADB; o código escreve somente `adb_wifi_enabled`. `ACCESS_NETWORK_STATE`, `RECEIVE_BOOT_COMPLETED`, permissões FGS/specialUse e POST_NOTIFICATIONS sustentam a monitorização visível. Serviço exportado exige `android.permission.DUMP`; apps comuns não podem acionar seu controle. Activity do usuário não recebe comandos automáticos externos.
+## Preparação e instalação
 
-Package: `marketing.insight360.adbkeeper`. Build: `bash Integrations/AndroidAdbKeeper/build.sh`, SDK oficial36/build-tools36 eJDK21 do workspace t9. Usa assinatura local de desenvolvimento existente do projeto; não versionar a chave.
+1. Prepare o SDK Android e o JDK compatíveis com o projeto.
+2. Compile o aplicativo e mantenha uma assinatura local consistente para futuras atualizações.
+3. Instale-o por uma conexão de depuração que já tenha sido autorizada pelo usuário.
+4. Conceda a permissão necessária para alterar configurações seguras do Android e a permissão de notificação.
+5. Permita a execução em segundo plano e, se necessário, uma exceção de otimização de bateria restrita ao helper.
+6. Ative o acompanhamento e confirme sua notificação persistente.
 
-Depois de `adb -s SERIAL install -r InsightAdbKeeper.apk`:
+A autorização para alterar configurações seguras é ampla. Nesta implementação, seu uso é limitado à solicitação de ativação da depuração sem fio. O controle externo do serviço é protegido pelas permissões do sistema, evitando que aplicativos comuns o acionem.
 
-```
-adb -s SERIAL shell pm grant --user 0 marketing.insight360.adbkeeper android.permission.WRITE_SECURE_SETTINGS
-adb -s SERIAL shell pm grant --user 0 marketing.insight360.adbkeeper android.permission.POST_NOTIFICATIONS
-adb -s SERIAL shell dumpsys deviceidle whitelist +marketing.insight360.adbkeeper
-adb -s SERIAL shell am start-foreground-service -n marketing.insight360.adbkeeper/.KeeperService -a marketing.insight360.adbkeeper.START
-```
+## Pausar ou remover
 
-Whitelist de bateria é restrita a esse app; não altera economia global do tablet. Pausar pelo app/notificação, ou comando shell protegido `am start-foreground-service -n marketing.insight360.adbkeeper/.KeeperService -a marketing.insight360.adbkeeper.PAUSE`.
+A pausa está disponível no app e na notificação. Ela interrompe a recuperação automática sem desfazer o pareamento nem exigir a queda da conexão atual.
 
-Para retirar a autorização: pausar, `pm revoke --user 0 marketing.insight360.adbkeeper android.permission.WRITE_SECURE_SETTINGS`, `dumpsys deviceidle whitelist -marketing.insight360.adbkeeper`; desinstalar também remove as permissões. Não é necessário desligar ADB nem desfazer pareamento.
+Para retirar a autorização, pause o acompanhamento e revogue as permissões concedidas e a exceção de otimização de bateria. A desinstalação também remove as autorizações do aplicativo.
 
-## Validação em 18/10/2026
+## Limites
 
-- Oito checks Java da política: recuperar com Wi-Fi/ativação/permissão; respeitar pausa, ausência de permissão/rede, master/USB desligados, já ativo e limite de tentativas.
-- Desativação real `adb_wifi_enabled=0`: Mac perdeu conexão; app reativou localmente e ADB reconectou em6,3s.
-- Ciclo real Wi-Fi off/on no tablet por script shell temporário (nohup, atraso2s, Wi-Fi off4s, on): houve perda de ADB e retorno automático em16,4s. Logs do app confirmaram pedido local de recuperação. Router e outras conexões não alterados.
-- APK1.0.1/build2 reinstalado; serviço retomado por MY_PACKAGE_REPLACED e foreground confirmado; WRITE_SECURE_SETTINGS/POST_NOTIFICATIONS e whitelist mantidos; ADB ligado e bridge de bateria executado.
-- Reboot real e troca para outro SSID não foram testados. Rede nova pode exigir uma autorização nativa. Sem Wi-Fi disponível o serviço aguarda; não liga Wi-Fi por conta própria.
+O helper não liga o Wi-Fi por conta própria, não aprova redes novas ou computadores, não usa root e não força o modo TCP legado. Desligar as opções de desenvolvedor ou as autorizações necessárias impede a recuperação.
 
-Referências: Android FGS specialUse https://developer.android.com/develop/background-work/services/fgs/service-types#special-use ; mecanismo Settings.Global/WRITE_SECURE_SETTINGS documentado pelo autor https://github.com/retransmit/DevSwitch . Implementação própria, sem copiar código externo.
+Uma rede nova pode exigir uma confirmação nativa. Bloqueio, repouso, restrições do fabricante e falta de conectividade ainda podem impedir a retomada. O mecanismo é uma tentativa controlada de recuperação, não uma garantia de conexão permanente.
 
-## S23 Ultra / X99 — 18/10/2026
+## Validação
 
-Mesmo APK1.0.1/build2 instalado também no SM-S918B DEMO_S23, Android16, via ADB existente do X99. WRITE_SECURE_SETTINGS e POST_NOTIFICATIONS concedidas ao user0, whitelist de bateria somente para o app e serviço foreground ativo. Rede Insight_Starlink com sinal -26dBm; AP atual já consta no estado confiável do ADB. Troca automática por redes melhores já estava em0 e permaneceu assim.
+As verificações da política cobrem as condições necessárias à recuperação, pausa, ausência de rede ou permissão, configuração já ativa e limite de tentativas.
 
-X99 já tem `s23-adb-wifi-keepalive.service` ativo, descobrindo porta TLS por mDNS a cada20s; anúncio vivo e endpoint atual verificados. Serviços/scripts do X99 não foram alterados. `s23-camera-v4l2.service` permaneceu active com mesmo PID2700238 e início22:25:59, conexão TCP com tráfego recente. Não foi forçada queda/reinício do S23, para preservar a câmera em uso. Configuração de retorno após boot existe no app, mas reboot real também não foi testado no S23. Bridge de baterias executado após instalação.
+Em uma instalação própria, confirme a retomada do serviço após atualização e teste a perda e o retorno de conectividade em uma janela apropriada. Não presuma que isso comprove também o comportamento após reinício ou troca para outra rede: esses cenários precisam de validação separada.

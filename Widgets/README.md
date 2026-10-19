@@ -1,46 +1,53 @@
-# Baterias Insight
+# Widgets de bateria
 
-Widgets separados do widget Baterias da Apple. macOS mostra S23 Ultra, S25 Ultra, Z Fold6 e Tab S8+. Android mostra esses quatro, MacBook Pro e Alienware. S23/S25 têm o modelo dentro do desenho; Fold usa uma dobradiça, tablet usa formato paisagem e Alienware tem um notebook angular com o rosto alienígena.
+Widgets independentes com aparência próxima dos componentes nativos do sistema, ícones distintos e organização compacta. Esta documentação descreve o funcionamento sem identificar uma instalação, publicar credenciais ou informar comandos e caminhos.
 
-## Layout
+## Apresentação
 
-- Mac: `Galaxy · Uma linha` (médio, quatro lado a lado) e `Galaxy · Duas linhas` (pequeno, 2×2), na galeria do app Insight Batteries.
-- Android: app Baterias Insight → Uma linha (padrão, seis lado a lado) ou Duas linhas (3+3). A escolha atual vale para os widgets desse aparelho. A atualização para a versão 3 foi provisionada em uma linha nos quatro Galaxy. Adicionar widget abre o fluxo nativo do launcher; tamanho ajustável.
+O widget adicional do macOS mostra quatro perfis móveis. O widget nativo do sistema continua disponível para os acessórios já reconhecidos por ele.
 
-O widget nativo do Mac não é alterado. O posicionamento no desktop é feito pela galeria do macOS.
+O widget Android mostra seis perfis na implementação atual, incluindo dispositivos móveis e computadores. É possível usar uma linha ou duas. Os perfis e os ícones correspondem a tabelas do código que precisam ser adaptadas para cada instalação.
 
-## Sincronização pela internet (versão 3)
+## Como sincronizamos
 
-Cada Android lê sua própria bateria e envia somente porcentagem e estado de carregamento por HTTPS para `https://batteries.example.com/v1/batteries`. A resposta traz a última leitura dos seis aparelhos. Mac e Alienware publicam suas próprias baterias pelo mesmo endpoint quando estão acordados; os Androids continuam independentes quando eles dormem ou mudam de rede.
+Cada cliente lê a própria bateria e envia somente a porcentagem e o estado de carregamento para uma central autenticada. A central usa Python e SQLite para guardar a leitura e seu horário.
 
-A API Python/SQLite roda no X99 em `~/.local/share/insight-batteries`, serviço de usuário `insight-batteries.service` habilitado com linger. O túnel Cloudflare existente publica exclusivamente o hostname de baterias para `192.0.2.10:17874`. A origem aceita apenas o IP do conector CT111 `192.0.2.60`. Sem portas novas no roteador. Cada aparelho tem um token aleatório próprio; o servidor guarda apenas hashes e vincula a escrita à identidade desse token. API limitada a porcentagem e booleano de carregamento, corpo de até 512 bytes, 60 chamadas/minuto por chave e 16 conexões simultâneas. Leituras não autenticadas são rejeitadas. Credenciais não entram no APK nem no repositório.
+Um túnel ou proxy HTTPS publica a central privada. Assim, os clientes móveis continuam sincronizando entre si quando o computador macOS está em repouso ou fora da rede.
 
-Android: serviço em primeiro plano do tipo connectedDevice, notificação silenciosa, envio ao mudar porcentagem/carregamento, ao voltar a rede ou tela, e consulta periódica de 60 segundos enquanto o sistema executa o processo. Sem wakelock contínuo. JobScheduler persistente de 15 minutos é o fallback. Início ao ligar o aparelho/depois de atualizar o app; opção de pausar a sincronização dentro do app. Os quatro foram liberados da otimização de bateria para melhorar a entrega em segundo plano. Doze, Samsung e falta de internet ainda podem atrasar execuções; não prometer tempo real absoluto. Últimas leituras com mais de 180 segundos aparecem offline. A própria bateria é sempre lida localmente ao desenhar.
+Cada cliente recebe uma credencial independente. A central guarda os hashes e permite que a identidade autenticada altere somente a própria leitura. Os clientes consultam o snapshot do conjunto autorizado. Não são transmitidos mensagens, clipboard ou arquivos.
 
-O Mac mantém o LaunchAgent `marketing.insight360.battery-widgets` de 30 segundos. Em modo internet ele não coleta nem envia estados de outros aparelhos por ADB; apenas publica sua bateria, obtém o snapshot e grava atomicamente no container WidgetKit. O orçamento visual do WidgetKit continua sendo controlado pelo macOS. Arquivo de configuração privado: `~/.local/share/pedro-notch/battery-hub-client.json`; diagnóstico `battery-widgets-health.json`. O coletor anterior do KDE/ADB permanece como compatibilidade para instalações sem configuração da central.
+## Etapas de configuração
 
-O Alienware usa `Integrations/battery-hub/windows-publisher.py`, Python padrão e `GetSystemPowerStatus`, com envio a cada 30 segundos. Carregamento é o sinal nativo da bateria, não apenas estar ligado à tomada. Configuração privada em `%USERPROFILE%\.local\share\insight-batteries\client.json`, pasta com ACL restrita ao usuário e SYSTEM. `install-windows-publisher.ps1` registra `InsightBatteriesPublisher` no Agendador, com início ao ligar e entrar no Windows, S4U e recuperação após falha. Não altera energia, suspensão, AWCC ou ventoinhas. O bridge do Mac aceita o snapshot de seis e filtra Alienware antes do cache: o widget do Mac continua com quatro Samsung.
+1. Personalize o conjunto de perfis, a identificação dos clientes e os ícones antes de compilar.
+2. Prepare a central com armazenamento persistente e início automático.
+3. Gere credenciais individuais fora do repositório e associe seus hashes às identidades no servidor.
+4. Prepare a publicação HTTPS e limite o acesso à origem privada.
+5. Configure cada cliente com seu destino de conexão e somente sua própria credencial.
+6. Compile e instale o widget macOS e o app Android usando as ferramentas de desenvolvimento correspondentes.
+7. Faça o provisionamento Android pela depuração já autorizada; as credenciais reais não são embutidas no APK.
+8. Prepare o publicador Windows com Python e configure o início automático pelo Agendador.
+9. Confirme a conexão e adicione os widgets pelas galerias dos respectivos sistemas.
 
-Instalação Android via `Widgets/deploy-android-cloud.py --config <arquivo-privado> --apk <APK-assinado>` e `--s23` para o S23 pelo X99. A provisão usa o receiver protegido pela permissão DUMP disponível apenas ao shell ADB; depois disso os aparelhos dispensam a depuração. A configuração é privada do app, com backup Android desabilitado. A instalação preserva os widgets existentes; o provisionamento da versão 3 seleciona uma linha conforme solicitado.
+Os apps Android precisam de permissões de notificação e execução em segundo plano. O provisionamento pode permitir uma exceção de otimização de bateria restrita ao próprio app. Depois da configuração, a sincronização pela internet não depende de ADB.
 
-## Build e instalação local
+## Frequência e disponibilidade
 
-Mac: Xcode + xcodegen, `xcodegen generate --spec Widgets/macOS/project.yml`, build Release do scheme InsightBatteries e `bash Widgets/macOS/install.sh`. O script atual usa o derivedData da sessão t9. Host e extensão são assinados ad-hoc; extensão com sandbox. O bridge escreve no container próprio da extensão, sem App Groups fictícios. Incrementar CURRENT_PROJECT_VERSION e CFBundleVersion da extensão ao mudar descritores, para invalidar o cache do chronod.
+Os publicadores de computadores usam ciclos de 30 segundos. No Android, eventos de bateria e rede complementam um serviço visível com ciclo de 60 segundos e um job periódico de fallback. O WidgetKit controla quando a apresentação do macOS pode ser atualizada.
 
-Android: `bash Widgets/Android/build.sh`, SDK oficial Android 36/build-tools 36 e JDK21. APK assinado com chave local persistente de desenvolvimento em `~/.local/share/pedro-notch/batteries-signing.jks` (não versionada). Instalação incremental `adb install -r`. O script usa o SDK da sessão t9.
+Leituras com mais de 180 segundos aparecem como antigas ou offline. A bateria do próprio Android é lida localmente ao desenhar o widget.
+
+Suspensão, desligamento, falta de internet e restrições de segundo plano interrompem ou atrasam novas leituras. Os demais clientes preservam o último valor conhecido. Tampa fechada não mantém o publicador executando se o sistema suspender.
+
+## Inicialização automática e energia
+
+O publicador macOS é iniciado por usuário. Com a central configurada, o instalador desativa o antigo helper de manter o computador acordado.
+
+O Android tem retomada configurada após inicialização e atualização do app, sujeita às restrições do sistema. O publicador Windows registra início ao ligar e ao entrar na conta, com recuperação após falha.
+
+Os publicadores não modificam o plano de energia, o comportamento da tampa, as ventoinhas ou a suspensão. A central independente reduz a dependência do computador macOS, mas cada cliente ainda precisa executar para publicar sua própria bateria.
 
 ## Verificação
 
-`python3 -m unittest discover -s Tests -p test_battery_widgets.py` verifica exclusão de conteúdo privado, seleção de dispositivos e retenção da última leitura ao desconectar. `PedroBatteryWidgetTests.swift` verifica decode, filtro dos quatro Samsung e limite de 180 segundos. Builds Release, assinatura macOS e assinatura APK verificados. Instalação ADB bem-sucedida nos quatro Galaxy e widget de uma linha observado no launcher do S23 com porcentagens atualizadas.
+As verificações cobrem autenticação, escrita por identidade, rejeição de valores e campos indevidos, persistência, expiração das leituras e filtro dos perfis do widget macOS. A leitura Windows distingue carregamento de simples conexão à alimentação externa.
 
-## Repouso do Mac
-
-A central no X99 elimina a necessidade de deixar o Mac acordado para os outros aparelhos. O instalador `Widgets/install-services.sh` detecta a configuração da central e remove do início automático o helper `marketing.insight360.battery-availability`. A assertion e o override da tampa são liberados; nenhuma configuração global de `pmset` foi alterada. Fontes e backups do modo anterior ficam preservados para compatibilidade.
-
-## Verificação da versão 2
-
-`python3 -m unittest discover -s Tests -p test_battery_hub.py` verifica autorização, vínculo da identidade, rejeição de conteúdo extra/valores inválidos, limite de chamadas e persistência. `test_battery_widgets.py` verifica o formato e que o Mac não renova artificialmente o horário de leitura dos outros aparelhos. O teste vivo pausa o coletor do Mac e observa os quatro timestamps Android avançarem na base do X99 enquanto o timestamp do Mac permanece parado. A câmera do S23 permanece independente.
-
-## Verificação da versão 3
-
-`test_windows_battery.py` verifica a leitura do sinal de carregamento e a rejeição de bateria ausente/desconhecida. Os testes da API incluem a identidade própria do Alienware; os do bridge confirmam que o snapshot com seis é aceito, mas o cache do Mac conserva os cinco registros anteriores para o widget de quatro Samsung. A publicação Windows foi conferida em execução contínua pelo Agendador, após encerrar a sessão SSH de instalação; a prévia e o widget na tela inicial do S23 foram conferidos com os seis ícones em uma linha e Alienware com 78%.
+Para validar uma instalação, confirme que cada cliente publica a própria bateria, que os horários avançam enquanto ele executa e que os widgets preservam a última leitura quando esse cliente fica indisponível.

@@ -1,302 +1,237 @@
 # Insight Notch
 
-Uma central de produtividade para macOS, baseada no [Boring Notch](https://github.com/TheBoredTeam/boring.notch) 2.7.3. Reúne mídia, arquivos, clipboard, atividade, uso de IA, dispositivos móveis e computadores remotos no painel do notch.
+Uma central de produtividade para macOS, baseada no Boring Notch 2.7.3. Reúne mídia, arquivos, clipboard, atividade, uso de IA, dispositivos móveis e computadores remotos no painel do notch.
 
-Este README usa somente papéis genéricos, caminhos relativos e domínios de exemplo. Nenhuma chave, pareamento, conta, nome de equipamento ou configuração de rede pessoal é necessária para ler ou compartilhar estas instruções.
+Esta documentação explica os recursos, a arquitetura e as etapas de configuração usando somente funções genéricas dos componentes. Credenciais, endereços, domínios, identificadores, nomes de equipamentos, comandos e caminhos de instalação ficam fora do texto.
 
 ## Recursos implementados
 
 | Área | O que oferece |
 | --- | --- |
-| Home e mídia | Reprodução do macOS, capa, controles, calendário e recursos herdados de HUD, espelho e carregamento. |
+| Home e mídia | Reprodução do macOS, capas, controles, calendário e recursos herdados de HUD, espelho e carregamento. |
 | Shelf | Arrastar e soltar arquivos, compartilhamento e integração com AirDrop. |
-| Clipboard | Histórico pesquisável, itens fixados e limpeza dos não fixados; `Control+V` abre o histórico e `Command+V` mantém a colagem normal. Conteúdo marcado como confidencial é ignorado. |
-| Links | Captura de URL HTTP/HTTPS com título e observação opcionais, salva como Markdown em uma caixa de entrada do Obsidian. |
-| Atividade | Eventos locais de tarefas, transferências e aplicativos, com estados de progresso e conclusão. A integração com Dot pode ser ocultada nas configurações sem removê-la. |
-| Uso de IA | Janelas de uso de Claude, Codex e Gemini; histórico, fontes locais adicionais de OpenCode e estimativas quando disponíveis. Indica leituras antigas em vez de tratá-las como atuais. |
-| Avisos de limites | Alertas em 80% e 95%, com deduplicação e respeito à janela de renovação. Comparações relativas e dados antigos não geram avisos de cota. |
-| Mixer | Volume e mute por aplicativo, integrados ao painel, além dos controles de áudio existentes. |
-| Prévia de janelas | Prévia ao interagir com o Dock, com fallback para ícone quando a captura não estiver disponível. |
-| Dispositivos móveis | Bateria, carregamento, toque de localização, compartilhamento e transferências pelo KDE Connect. |
-| Mensagens | Notificações encaminhadas para as notificações nativas do macOS e resposta pelo painel quando a origem oferece uma ação de resposta. |
-| Mídia remota | Seleção de player e ações anterior, reproduzir/pausar e próxima para players expostos pelo KDE Connect. |
-| Arquivos | Cópias acompanhadas, busca por nome em raízes permitidas e obtenção de arquivos de computadores remotos. |
-| Processamento | Filas persistentes por destino para converter vídeo em MP4, extrair áudio M4A e transcrever localmente. Progresso, cancelamento e verificação SHA-256 do resultado. |
-| Mesa contínua | Compartilhamento de teclado, mouse e clipboard com Deskflow, disposição lateral e túneis SSH privados. |
-| Apps Android | Espelhamento e aplicativos em janelas com scrcpy, listagem de apps, ícones extraídos do aparelho e encerramento das janelas sem manter seus itens temporários no Dock. |
-| Recuperação de ADB | Helper Android opcional para tentar reativar a depuração sem fio depois de alterações da rede, respeitando pausa e autorizações do sistema. |
-| Telemetria | Recursos locais do macOS e sondas SSH para Linux, Windows, armazenamento e nós Proxmox; estados de serviços e feeds opcionais de alertas. |
-| Widgets de bateria | Widget separado no macOS para quatro dispositivos móveis; widget Android com seis perfis da implementação atual, em uma linha ou duas. Publicadores independentes para macOS, Android e Windows. |
+| Clipboard | Histórico pesquisável, itens fixados e limpeza dos não fixados. Control+V abre o histórico e Command+V mantém a colagem normal. Conteúdo marcado como confidencial é ignorado. |
+| Links | Captura de links com título e observação opcionais, salva como Markdown em uma caixa de entrada do Obsidian. |
+| Atividade | Eventos locais de tarefas, transferências e aplicativos, com progresso e conclusão. A integração com Dot pode ser ocultada sem removê-la. |
+| Uso de IA | Janelas de Claude, Codex e Gemini, histórico e fontes locais adicionais de OpenCode quando disponíveis. Leituras antigas são identificadas. |
+| Avisos de limites | Alertas em 80% e 95%, com deduplicação e respeito à renovação. Dados antigos e comparações relativas não disparam avisos de cota. |
+| Mixer | Volume, mute e seleção de saída por aplicativo. |
+| Prévia de janelas | Prévia ao interagir com o Dock, com fallback para ícone quando a captura não está disponível. |
+| Dispositivos móveis | Bateria, carregamento, localização por toque, compartilhamento e transferências pelo KDE Connect. |
+| Mensagens | Notificações encaminhadas para o sistema nativo do macOS e resposta pelo painel quando a origem oferece essa ação. |
+| Mídia remota | Seleção de player, faixa anterior, reprodução, pausa e próxima faixa nos players expostos pelo KDE Connect. |
+| Arquivos | Cópias acompanhadas, busca por nome em locais permitidos e recebimento de arquivos remotos. |
+| Processamento | Filas persistentes para vídeo MP4, áudio M4A e transcrição local, com progresso, cancelamento e verificação de integridade. |
+| Mesa contínua | Teclado, mouse e clipboard compartilhados com Deskflow, disposição lateral e túneis SSH privados. |
+| Apps Android | Espelhamento e aplicativos em janelas com scrcpy, listagem de apps, ícones próprios e encerramento das janelas temporárias. |
+| Recuperação de depuração | Helper Android opcional para tentar recuperar a depuração sem fio após mudanças de rede, respeitando pausa e autorizações do sistema. |
+| Telemetria | Recursos locais do macOS e sondas SSH para Linux, Windows, armazenamento e virtualização, além de feeds opcionais de serviços e alertas. |
+| Widgets de bateria | Widget separado no macOS para quatro perfis móveis e widget Android com seis perfis da implementação atual, em uma linha ou duas. |
 | Interface | Painéis compactos, blocos separados de mídia e ações, vidro escuro opcional e proteção contra recolhimento pelo gesto vertical nas áreas com rolagem. |
 
-Os módulos são opcionais. Não é necessário configurar computadores remotos ou aparelhos para usar os recursos locais. A versão atual conserva uma topologia de exemplo em algumas tabelas do código; ela deve ser adaptada antes de instalar as integrações em outro ambiente.
+Os módulos são opcionais. Recursos locais funcionam sem configurar computadores remotos ou dispositivos móveis. A versão atual conserva tabelas de perfis no código; configurar outro ambiente exige adaptar essas tabelas, e não apenas mudar rótulos na interface.
 
-## Requisitos
+## Como a solução foi organizada
 
-- macOS e Xcode com SDK compatível com o projeto. O target principal declara macOS 14; algumas funções de captura e áudio dependem de APIs e permissões de versões mais recentes.
-- Node.js e npm para os helpers de atividade e KDE Connect; Python 3 para os brokers, filas e baterias.
-- As ferramentas de linha de comando do Xcode para compilar e assinar localmente.
-- Integrações opcionais: KDE Connect, scrcpy, Android Platform Tools, Deskflow, FFmpeg e um ambiente Python com `faster-whisper` para transcrição.
-- Para os apps Android: JDK 21, plataforma Android API 36 e Build Tools correspondentes.
-- Para o widget macOS: Xcode e, se for regenerar o projeto, XcodeGen.
+O painel macOS coordena a interface. Helpers independentes cuidam das conexões, coleta de dados e operações demoradas, mantendo o trabalho fora da thread principal.
 
-Alguns scripts esperam binários do Homebrew em `/opt/homebrew/bin` e apps em `/Applications`. Revise esses caminhos em instalações Intel ou com outra organização. Os caminhos remotos, perfis de dispositivos e executáveis dos workers também precisam corresponder à sua instalação.
-
-## Compilar, testar e instalar
-
-A partir da raiz do checkout:
-
-```bash
-(cd Integrations && npm ci --omit=optional --ignore-scripts)
-Scripts/run-pedro-tests.sh
-xcodebuild -project boringNotch.xcodeproj -scheme boringNotch \
-  -configuration Release -derivedDataPath /tmp/insight-notch-build \
-  CODE_SIGNING_ALLOWED=NO build
+```mermaid
+flowchart LR
+    N[Notch no macOS] --> K[KDE Connect]
+    N --> D[Deskflow por SSH]
+    N --> W[Workers de arquivos]
+    C[Clientes Android, macOS e Windows] --> B[Central de baterias autenticada]
+    B --> V[Widgets]
 ```
 
-Esse comando apenas compila. Para compilar e substituir a instalação local, depois de revisar as configurações:
+- KDE Connect mantém o pareamento e oferece notificações, mídia, bateria e compartilhamento.
+- SSH transporta comandos controlados e arquivos entre o painel e os destinos autorizados.
+- Deskflow compartilha entrada e clipboard por conexões privadas.
+- Workers executam conversões, transcrição e busca, com estado persistente por trabalho.
+- A central de baterias recebe dados de cada cliente diretamente. Os dispositivos móveis não dependem do computador macOS acordado para sincronizar entre si.
 
-```bash
-script/build_and_run.sh --verify
-```
+As integrações não representam uma descoberta universal de qualquer equipamento. Identificação de dispositivos, destinos, recursos pesquisáveis e ferramentas disponíveis precisam corresponder à instalação de cada pessoa.
 
-O instalador faz backup do app, das preferências e das integrações existentes; copia os helpers; assina localmente; repara registros antigos de lançamento; e abre `/Applications/Insight Notch.app`. A opção `--install-built` usa a build do diretório interno do instalador, não uma build de qualquer outro diretório.
+## Preparação e instalação
 
-O identificador de preferências permanece `theboringteam.boringnotch`, para manter compatibilidade. Ative a inicialização ao entrar no sistema nas configurações do app. Não aponte o item de login para uma cópia de backup.
+### Aplicação macOS
 
-A assinatura local não equivale a uma distribuição notarizada. Os pacotes oficiais do projeto original não incluem as alterações desta edição e podem substituí-las se forem instalados por cima.
+1. Prepare Xcode com um SDK compatível com as APIs do projeto. O target principal declara macOS 14; algumas funções de captura e áudio exigem versões mais recentes.
+2. Prepare Node.js, npm e Python 3 para os helpers usados pelas integrações.
+3. Revise os destinos, perfis e preferências da sua própria instalação antes de compilar.
+4. Instale as dependências Node e compile o projeto principal no Xcode em configuração Release.
+5. Execute as verificações fornecidas pelo projeto antes de substituir a instalação existente.
+6. Use o instalador do projeto para fazer backup, copiar os helpers, assinar localmente e registrar a aplicação.
+7. Ative a inicialização ao entrar no sistema nas configurações do app.
 
-## Permissões do macOS
+A assinatura local pode exigir nova autorização de privacidade após uma recompilação. Uma distribuição original do Boring Notch não inclui os recursos desta edição.
 
-Conceda cada permissão apenas ao componente que a usa, em **Ajustes do Sistema → Privacidade e Segurança**:
+### Componentes opcionais
 
-| Permissão | Uso |
+| Integração | Preparação necessária |
 | --- | --- |
-| Acessibilidade | Atalhos e interação assistida com janelas; o Deskflow precisa da própria autorização. |
-| Monitoramento de Entrada | Captura de entrada pelo Deskflow, conforme solicitado pelo sistema. |
-| Gravação de Tela e Áudio do Sistema | Captura de área, prévias de janelas e funções do mixer que usam captura de áudio. |
-| Notificações | Exibição nativa das notificações encaminhadas. |
-| Calendários e Lembretes | Recursos correspondentes do painel inicial. |
+| Dispositivos móveis | KDE Connect nas duas pontas e pareamento confirmado pelo usuário. |
+| Janelas Android | Android Platform Tools, scrcpy e depuração autorizada. |
+| Helpers Android | JDK 21, plataforma Android API 36 e Build Tools correspondentes. |
+| Mesa contínua | Deskflow nos sistemas participantes e permissões de entrada. |
+| Processamento | Python 3 nos destinos e FFmpeg para áudio e vídeo. |
+| Transcrição | Ambiente Python com faster-whisper e modelo compatível disponível localmente. |
+| Widget macOS | Projeto de widget compilado no Xcode; XcodeGen caso seja necessário regenerá-lo. |
+| Baterias pela internet | Serviço Python com SQLite, publicação HTTPS e credencial independente por cliente. |
 
-Depois de recompilar um app com assinatura local, o macOS pode exigir renovar a autorização daquela versão. Ver o controle habilitado não garante que a captura já funcione: reabra o app e teste a função. No Linux, confirme também os diálogos da sessão gráfica necessários ao compartilhamento de entrada.
+## Permissões
 
-## Configuração local e SSH
+No macOS, autorize somente as funções que pretende usar:
 
-Use aliases próprios e contas autorizadas no seu `~/.ssh/config`. Nunca copie uma chave privada para o repositório. Exemplo de alias genérico:
+- Acessibilidade para atalhos e interação assistida com janelas.
+- Monitoramento de Entrada para o Deskflow, quando solicitado pelo sistema.
+- Gravação de Tela e Áudio do Sistema para captura, prévias e funções de áudio que dependem dessa API.
+- Notificações para os avisos encaminhados.
+- Calendários e Lembretes para os recursos correspondentes.
 
-```sshconfig
-Host workstation
-    HostName workstation.example.invalid
-    User operator
-    IdentityFile ~/.ssh/id_ed25519
-    IdentitiesOnly yes
-```
+O Deskflow precisa da própria autorização; a permissão concedida ao Notch não substitui a de outro processo. No Linux, confirme também os diálogos exigidos pela sessão gráfica.
 
-Substitua o domínio de exemplo e confirme a conexão no terminal antes de habilitar uma integração:
+Após uma nova build, reabra o aplicativo e teste a função. O controle de permissão estar habilitado não comprova, por si só, que a assinatura atual já está autorizada.
 
-```bash
-ssh -o BatchMode=yes workstation hostname
-```
+## Configurar dispositivos, mensagens e mídia
 
-As sondas de telemetria usam destinos e identidades explícitos; não presuma que todos os módulos herdem automaticamente esse alias. Os mapas de workers, os nomes de telas e os perfis móveis também são configurações independentes.
+1. Abra o KDE Connect no computador e no dispositivo móvel.
+2. Confirme o pareamento nas duas pontas.
+3. Habilite os plugins de bateria, notificações, compartilhamento e mídia que deseja usar.
+4. No Android, permita o acesso às notificações e selecione os aplicativos que podem encaminhá-las.
+5. Associe os perfis internos aos seus próprios pareamentos e escolha rótulos locais.
+6. Se utilizar um relay, prepare os helpers e dependências no usuário Linux que mantém a sessão do KDE Connect e confirme seu acesso SSH.
 
-| Configuração | Onde revisar |
-| --- | --- |
-| Destinos de telemetria, preferência de host e sonda Windows | [Provider de operações](boringNotch/Providers/PedroOpsProvider.swift). |
-| Nós de virtualização e identidade SSH por nó | [Modelos de virtualização](boringNotch/models/PedroProxmoxModels.swift). |
-| Serviços, feeds e conjuntos de armazenamento | [Provider de serviços](boringNotch/Providers/PedroStackProvider.swift). |
-| Destinos de processamento, intérpretes e caminhos remotos | [Broker de arquivos](Integrations/desk-hub.py). |
-| Raízes pesquisáveis, ferramentas e execução de trabalhos | [Worker](Integrations/desk-worker.py). |
-| Telas, nomes internos e disposição de teclado/mouse | [Controle de mesa](Integrations/deskflow-control.py). |
-| Pareamentos, identificação por modelo e perfis do espelhamento | [Helper de dispositivos](Integrations/scrcpy-phone.py) e [manager móvel](boringNotch/Providers/PedroPhoneManager.swift). |
+A árvore configurável aceita um ajuste local do relay e dos nomes visíveis. Nos módulos que mantêm tabelas fixas, personalize o código e recompile. Não existe um único formulário que configure todas as integrações.
 
-Na árvore configurável, os resolvedores de preferências aceitam ajustes locais com `defaults`. Use a chave que realmente estiver definida no módulo, não o marcador deste exemplo:
+O encaminhamento nativo substitui somente o popup duplicado que está sendo gerenciado e tenta restaurar a configuração anterior ao parar. Respostas dependem da ação disponibilizada pela notificação original; nem toda mensagem oferece essa possibilidade.
 
-```bash
-# Com o app parado; substitua PREFERENCE_KEY e o valor antes de executar.
-defaults write theboringteam.boringnotch PREFERENCE_KEY -string 'operator@workstation.example.invalid'
-```
+A mídia local continua usando a integração do macOS. O controle remoto depende dos players expostos pelo KDE Connect. O Mixer permite ajustar volume e saída por aplicativo sem exigir um cliente específico para cada serviço de streaming.
 
-Nem todos os módulos possuem tela de configuração ou arquivo JSON universal. Onde houver tabela fixa, adapte o código e recompile. Os exemplos não fazem provisionamento remoto, não concedem acesso SSH e não alteram firewalls.
+## Configurar janelas Android e recuperação da depuração
 
-## KDE Connect: aparelhos, mensagens e mídia
+1. Habilite as opções de desenvolvedor e a depuração sem fio no Android.
+2. Faça o pareamento autorizado com o código exibido pelo sistema.
+3. Confirme que o aparelho está acessível e associe seu perfil ao helper de espelhamento.
+4. Prepare o scrcpy e compile o helper de ícones, caso deseje os ícones extraídos dos aplicativos.
+5. Na interface do Notch, selecione o dispositivo e abra o espelhamento ou um app em janela.
 
-1. Instale e abra o KDE Connect no macOS e em cada dispositivo móvel; confirme o pareamento nas duas pontas.
-2. No dispositivo, habilite os plugins necessários: bateria, notificações, compartilhamento e controle de mídia. Para mensagens, conceda acesso às notificações e permita os aplicativos desejados.
-3. Configure os perfis e rótulos locais no manager móvel. Os IDs devem ser os do seu pareamento, sem reutilizar exemplos.
-4. Para usar um relay Linux, instale nesse usuário os helpers Node e suas dependências em `~/.local/share/pedro-notch/`, e confirme o KDE Connect na sessão D-Bus desse usuário.
-5. Se sua árvore contiver `Config/integrations.example.json` e `Integrations/local-config.cjs`, copie o exemplo para `~/.config/pedro-notch/integrations.json`. Defina `relayHost` com um alias SSH autorizado e `deviceNames` com os IDs e rótulos escolhidos. Um relay vazio deixa somente os pareamentos diretos.
-6. Na árvore sem esse resolvedor, ajuste o destino diretamente nos helpers de telefone e transferência antes da instalação.
+As janelas de aplicativos usam um display virtual quando suportado. Cada janela recebe identidade visual própria e pode ser encerrada sem relançamento automático. Bloqueio, repouso ou restrições de captura podem impedir a imagem mesmo quando a conexão existe.
 
-O encaminhamento nativo tenta substituir apenas o popup duplicado de notificação do KDE Connect e restaurar a configuração anterior ao parar. A resposta só aparece quando a notificação fornece uma ação compatível. Nem toda notificação ou player oferece resposta, seek ou controle remoto.
+O helper opcional de recuperação funciona no próprio Android. Durante a instalação autorizada, ele recebe a permissão necessária para solicitar a alteração da configuração de depuração, além das permissões de notificação e execução em segundo plano. A exceção de otimização de bateria é limitada a esse app.
 
-A mídia do computador usa a integração nativa do macOS. A mídia do dispositivo móvel depende do player que o KDE Connect expõe. Não é necessário adicionar um cliente específico para cada serviço de streaming.
+Ao detectar uma alteração de rede, o helper aguarda a estabilização e tenta recuperar a depuração com limite de tentativas. Há monitoramento periódico de fallback e retomada configurada após inicialização ou atualização do aplicativo. É possível pausar pelo app ou pela notificação.
 
-## Apps Android e depuração sem fio
+As opções de desenvolvedor e de depuração necessárias devem continuar habilitadas. O Android mantém o controle sobre a confiança na rede e a autorização dos computadores. O helper não aprova redes novas, não troca a ROM, não faz root e não garante conexão contínua em qualquer condição.
 
-1. Habilite as opções de desenvolvedor e a depuração sem fio no aparelho.
-2. Faça o pareamento com o Android Platform Tools usando o código exibido pelo próprio Android. A porta de pareamento pode ser diferente da porta de conexão.
-3. Confirme `adb devices` e adapte os perfis do helper de dispositivos, incluindo identificação de hardware quando usada.
-4. Instale scrcpy no caminho esperado pelo helper, ou ajuste esse caminho.
-5. Na interface, selecione o dispositivo e abra o espelhamento ou um aplicativo em janela.
+## Configurar arquivos e processamento
 
-As janelas de aplicativos usam um display virtual quando suportado. O helper [de ícones](Integrations/AndroidAppIcons/build.sh) obtém os ícones do aparelho; seu APK deve ser compilado e instalado para esse fluxo. Cada janela recebe uma identidade própria de app, e seu encerramento normal não deve relançá-la automaticamente.
+1. Prepare um acesso SSH autorizado para cada destino.
+2. Instale o worker no usuário que executará as tarefas e confirme o intérprete Python usado por ele.
+3. Associe os destinos e os locais permitidos ao broker do Notch.
+4. Instale FFmpeg para conversão e prepare o ambiente de transcrição quando necessário.
+5. Defina os locais em que a busca pode procurar arquivos.
+6. Confirme as capacidades do destino pela interface antes de enviar um trabalho.
+7. No Windows, valide a execução pelo Agendador e sua continuidade após o encerramento da sessão SSH.
 
-Para a recuperação opcional de depuração:
+A área de arquivos reúne Cópias, Processar e Buscar arquivos. A busca usa nomes e metadados em locais limitados. A fila é ordenada por destino e preserva progresso, conclusão, cancelamento e falhas. O recebimento do resultado verifica SHA-256 antes de apresentá-lo como concluído.
 
-```bash
-bash Integrations/AndroidAdbKeeper/build.sh
-adb -s SERIAL install -r /caminho/InsightAdbKeeper.apk
-adb -s SERIAL shell pm grant --user 0 marketing.insight360.adbkeeper android.permission.WRITE_SECURE_SETTINGS
-adb -s SERIAL shell pm grant --user 0 marketing.insight360.adbkeeper android.permission.POST_NOTIFICATIONS
-adb -s SERIAL shell dumpsys deviceidle whitelist +marketing.insight360.adbkeeper
-adb -s SERIAL shell am start-foreground-service \
-  -n marketing.insight360.adbkeeper/.KeeperService \
-  -a marketing.insight360.adbkeeper.START
-```
+A seleção de destino pode ser automática ou explícita. A transcrição atual usa CPU e um modelo previamente disponível. A execução depende de o destino permanecer acordado, acessível e com as ferramentas preparadas.
 
-`SERIAL` e o caminho do APK são marcadores; substitua-os pelos seus valores locais. `WRITE_SECURE_SETTINGS` é uma permissão ampla: o helper a usa para solicitar a ativação da depuração sem fio. É possível pausá-lo pelo app ou notificação e revogar essa permissão por ADB.
+## Configurar a mesa contínua
 
-A recuperação exige Wi-Fi disponível e as opções de desenvolvedor/depuração necessárias habilitadas. O Android continua responsável por confiar na rede e autorizar o computador. O helper não aprova redes novas, não troca a ROM, não faz root e não força a porta TCP legada. Bloqueio, suspensão e restrições do fabricante ainda podem impedir a imagem ou atrasar a conexão.
+1. Prepare Deskflow no computador que compartilha teclado e mouse e nos clientes.
+2. Defina nomes internos de tela e uma disposição consistente nos componentes, usando seus próprios dados locais.
+3. Autorize o compartilhamento de entrada em cada sistema.
+4. Confirme o acesso SSH usado pelos túneis.
+5. Escolha a disposição na interface e inicie a sessão.
+6. Verifique os clientes conectados e teste fisicamente a passagem do cursor pelas bordas.
 
-## Arquivos, busca e processamento
+O servidor escuta somente na interface local e os clientes chegam por túneis SSH. Esse transporte depende do isolamento da conexão. Um processo aberto não prova que o cliente esteja conectado.
 
-1. Instale Python 3 em cada destino e copie `Integrations/desk-worker.py` para o caminho configurado no broker.
-2. Instale FFmpeg para áudio/vídeo. Para transcrição, configure `faster-whisper` e disponibilize previamente um modelo local compatível.
-3. Adapte os aliases, os intérpretes e os caminhos permitidos no broker. O transporte de arquivos valida o formato do caminho remoto; mudar somente o alias não basta.
-4. Revise as raízes de busca do worker. A busca é por nome e metadados em raízes limitadas, não um indexador semântico de todo o disco.
-5. Teste as capacidades do destino pela interface antes de enviar um trabalho. No Windows, a execução agendada precisa sobreviver ao encerramento da sessão SSH; valide o intérprete e o Agendador no seu ambiente.
+Control+Option+Home solicita o retorno ao computador macOS. Teclado, mouse e clipboard dependem de uma sessão gráfica disponível e das permissões concedidas.
 
-A área de arquivos reúne **Cópias**, **Processar** e **Buscar arquivos**. O processamento aceita seleção automática ou explícita de destino. A fila é persistente e ordenada por destino; progresso, cancelamento e falhas permanecem visíveis. Os resultados são recebidos em `~/Downloads/Insight Notch` após verificar o SHA-256. As credenciais SSH não são sincronizadas com os arquivos.
+## Configurar os widgets de bateria
 
-A transcrição atual é local, em CPU e com modelo previamente disponível. Não há promessa de aceleração de GPU, carregamento de modelo arbitrário ou processamento quando o computador de destino estiver suspenso.
+### Central independente
 
-## Mesa contínua com Deskflow
+A central usa Python e SQLite. Cada cliente envia apenas a própria porcentagem e o estado de carregamento, autenticado por uma credencial exclusiva. O servidor guarda o hash dessa credencial, vincula a escrita ao cliente e devolve o snapshot do conjunto autorizado.
 
-1. Instale Deskflow no computador macOS e nos destinos. Revise os caminhos de `deskflow-core` nos helpers.
-2. Configure nomes internos de tela consistentes no controlador e nos workers, e adapte os aliases SSH usados pelos túneis.
-3. Conceda as permissões de entrada ao Deskflow em cada sistema.
-4. Na área **Mesa contínua**, escolha a disposição e inicie a sessão. Confirme que os clientes aparecem conectados antes do teste físico.
-5. Leve o cursor até uma borda configurada. `Control+Option+Home` solicita o retorno ao computador macOS.
+Na implementação com publicação pela internet, um túnel ou proxy HTTPS, como Cloudflare Tunnel, conecta os clientes ao serviço privado. A central continua em um servidor disponível; o computador macOS deixa de ser intermediário obrigatório para os outros dispositivos.
 
-O servidor escuta em loopback; os clientes chegam por túneis SSH. O transporte interno do Deskflow nesta implementação depende desse isolamento: não exponha diretamente sua porta em uma interface pública. Teclado, mouse e clipboard dependem de uma sessão gráfica disponível e das permissões do sistema.
+Para configurar:
 
-## Widgets de bateria pela internet
+1. Personalize o conjunto de perfis e os rótulos nos componentes envolvidos.
+2. Gere credenciais individuais fora do repositório e mantenha somente seus hashes na configuração do servidor.
+3. Prepare o armazenamento persistente e a execução automática da central.
+4. Configure a publicação HTTPS, a origem privada e as restrições de acesso.
+5. Configure cada cliente com o destino da central e somente sua própria credencial.
+6. Confirme que cada cliente publica a própria bateria e recebe o snapshot esperado.
 
-### Funcionamento
+### macOS
 
-A central Python/SQLite recebe somente porcentagem e estado de carregamento. Cada cliente usa um token próprio, publica a própria bateria e lê o último snapshot do conjunto. O servidor guarda hashes SHA-256 dos tokens e restringe a escrita à identidade autenticada.
+O widget é separado do widget nativo do sistema, preservando o uso deste para acessórios. A implementação atual mostra quatro perfis móveis no widget adicional.
 
-O widget do macOS é separado do widget nativo do sistema, que continua disponível para acessórios. O widget Android inclui os perfis móveis e dos computadores, com ícones distintos e disposição em uma linha ou duas. A quantidade e os perfis refletem as tabelas atuais do código, não uma descoberta automática de qualquer equipamento.
+Compile e instale o projeto do widget, configure o publicador local e adicione-o pela galeria do macOS. A inicialização por usuário mantém o publicador disponível após entrar no sistema. No modo com central independente, o antigo mecanismo de manter o computador acordado é desativado pelo instalador de serviços.
 
-O publicador do macOS consulta a cada 30 segundos enquanto o sistema permite executar. O publicador Windows envia a cada 30 segundos. No Android, eventos de bateria/rede e um serviço visível sustentam a sincronização, com ciclo de 60 segundos e um job periódico de fallback. O WidgetKit e o Android podem adiar atualizações. Leituras com mais de 180 segundos são marcadas como antigas/offline.
+### Android
 
-### Configurar a central
+Compile o app, mantenha uma assinatura local consistente para futuras atualizações e instale-o pelos mecanismos de depuração já autorizados. O provisionamento protegido associa a credencial daquele cliente; os valores reais não são embutidos no APK.
 
-1. Personalize os IDs e rótulos em `Integrations/battery-hub/server.py`, os perfis dos clientes, o desenho dos ícones e o provisionador. Os conjuntos e identidades precisam corresponder.
-2. Gere tokens aleatórios separados para cada identidade fora do checkout. Para `--keys`, grave um objeto JSON que associe cada ID ao hash hexadecimal SHA-256 de seu token. Os clientes recebem apenas o próprio token bruto.
-3. Execute a API inicialmente em loopback, com arquivos privados e SQLite persistente:
+Permita notificações e execução em segundo plano, confirme a conexão com a central e adicione o widget pelo launcher. A versão atual oferece seis perfis, ícones distintos e uma linha ou duas. Depois do provisionamento, a sincronização pela internet dispensa ADB.
 
-```bash
-python3 Integrations/battery-hub/server.py \
-  --bind 127.0.0.1 --port 17874 \
-  --state "$HOME/.local/share/insight-batteries/state.sqlite3" \
-  --keys "$HOME/.config/insight-batteries/keys.private.json"
-```
+### Windows
 
-4. Publique `/v1/batteries` em um endpoint HTTPS sob seu controle, por exemplo `https://batteries.example.com/v1/batteries`. O arquivo de serviço fornecido é uma referência e precisa de revisão de caminhos, bind e origem permitida. Um conector em outro computador precisa alcançar o bind escolhido.
-5. Use uma origem privada e restrição de origem quando houver um túnel ou proxy remoto. Não é necessário expor a API sem autenticação no roteador.
-6. Substitua consistentemente o endpoint validado no bridge macOS, no cliente Android e no publicador Windows antes de compilar/provisionar. Não use um endpoint de exemplo como serviço real.
+Prepare o Python, configure o publicador e execute o instalador com a conta responsável pela tarefa. O instalador protege a configuração local, verifica uma publicação e registra a execução ao ligar e ao entrar na conta, com recuperação após falha.
 
-### Cliente e widget macOS
+A leitura usa o estado nativo da bateria para distinguir carregamento de alimentação externa. O publicador não altera plano de energia, comportamento da tampa, ventoinhas ou suspensão.
 
-Crie `~/.local/share/pedro-notch/battery-hub-client.json`, com permissão de arquivo `600`, contendo `endpoint` e `token` dessa identidade. Use valores gerados localmente; nenhum token é fornecido neste repositório. A presença desse arquivo ativa o modo de internet e permite que os demais clientes funcionem sem manter este computador acordado.
+### Atualização e repouso
 
-Compile o projeto do widget:
+Os publicadores de computadores usam ciclos de 30 segundos. O Android combina eventos de bateria e rede, um serviço visível com ciclo de 60 segundos e um job periódico de fallback. WidgetKit, economia de energia e restrições do sistema podem adiar a atualização visual ou a execução.
 
-```bash
-xcodegen generate --spec Widgets/macOS/project.yml
-xcodebuild -project Widgets/macOS/InsightBatteries.xcodeproj \
-  -scheme InsightBatteries -configuration Release \
-  -derivedDataPath /tmp/insight-widget-build \
-  CODE_SIGNING_ALLOWED=NO build
-```
+Leituras com mais de 180 segundos são marcadas como antigas ou offline. Sem internet, em repouso ou desligado, o cliente deixa de produzir uma leitura nova e os demais conservam o último valor. Uma tampa fechada só permite envio contínuo quando o sistema permanece acordado e conectado.
 
-O instalador do widget espera um diretório de produtos Release. Na árvore configurável, use:
+## Configurar uso de IA e atividade
 
-```bash
-WIDGET_BUILD_PRODUCTS=/tmp/insight-widget-build/Build/Products/Release \
-  bash Widgets/macOS/install.sh
-```
+- Codex usa o app-server autenticado localmente quando disponível.
+- Claude utiliza as fontes locais e a sessão configurada para o usuário; o histórico do app pode complementar as leituras.
+- Gemini utiliza o perfil autenticado do Microsoft Edge e o Chaves do macOS. A configuração privada associa o perfil à conta esperada por um hash, antes de consultar a cota. Os cookies necessários permanecem em memória e são enviados somente ao provedor. Não depende de uma janela aberta ou de Acessibilidade.
+- OpenCode pode fornecer histórico local quando sua base estiver disponível.
+- Preços e totais estimados dependem das leituras e da tabela disponível; não representam uma fatura do provedor.
+- A atividade recebe eventos explícitos de tarefas e integrações. Ocultar Dot preserva os eventos de transferência.
 
-Se sua árvore não tiver esse override, ajuste a variável de build do instalador antes de executar. Depois de criar a configuração de internet, instale o publicador local:
+Configure as sessões e as preferências localmente. Cotas de produtos diferentes não são intercambiáveis, e ausência de uma leitura não significa consumo zero. Contratos web de provedores podem mudar.
 
-```bash
-bash Widgets/install-services.sh
-```
+Para Links, selecione o diretório local do Obsidian nas preferências correspondentes. A captura exige um link válido e gera uma nota para análise posterior; não lê nem indexa automaticamente o conteúdo remoto.
 
-Adicione o widget pela galeria do macOS. O instalador de serviços cria a inicialização por usuário e o ciclo de coleta; com a central configurada, desativa o antigo helper de manter o computador acordado. Ele não elimina as regras de suspensão do sistema nem a necessidade de internet do cliente.
+## Telemetria e diagnóstico
 
-### Cliente e widget Android
-
-Na árvore configurável, defina `ANDROID_SDK_ROOT` e `JAVA_HOME`; na árvore com caminhos locais fixos, ajuste-os no script de build. Use a mesma chave de assinatura para atualizar uma instalação já existente, mantendo essa chave fora do Git.
-
-```bash
-bash Widgets/Android/build.sh
-adb -s SERIAL install -r /caminho/InsightBatteries.apk
-```
-
-Adapte as identidades de hardware do provisionador `Widgets/deploy-android-cloud.py` e use um arquivo local privado com `endpoint` e `tokens` por ID para instalar/configurar os dispositivos já autorizados. O provisionamento usa um receiver protegido, acessível ao shell ADB; o APK não carrega as credenciais reais. Depois disso, o envio pela internet dispensa ADB.
-
-Permita as notificações e a execução em segundo plano para o app. O provisionador também permite a exceção de otimização de bateria apenas para esse pacote. Abra o app, confirme a conexão com a central, escolha **Uma linha** ou **Duas linhas** e adicione o widget no launcher.
-
-### Publicador Windows
-
-Copie `windows-publisher.py` e `install-windows-publisher.ps1` para `%USERPROFILE%\.local\share\insight-batteries`. Crie ali `client.json` com o endpoint e somente o token dessa identidade. Revise os caminhos do Python no instalador.
-
-Execute o instalador no Windows com a conta que executará a tarefa. Ele restringe o diretório ao usuário e ao sistema, testa uma publicação e registra `InsightBatteriesPublisher` para iniciar ao ligar e ao entrar na conta, com recuperação após falha. A leitura usa o estado nativo de carregamento, não apenas a presença de alimentação externa.
-
-O publicador não muda o plano de energia, o comportamento da tampa, as ventoinhas ou a suspensão. Uma tampa fechada só permite envio contínuo se o Windows continuar acordado e conectado. Em suspensão, desligado ou sem internet, os outros clientes conservam a última leitura.
-
-## Uso de IA, eventos e fontes opcionais
-
-- **Codex:** usa o `app-server` autenticado localmente quando disponível; não requer publicar sua credencial no projeto.
-- **Claude:** usa a sessão e as fontes locais configuradas para o usuário. O leitor da API procura o cookie local em `~/.pedroops/claude_cookie.txt`; mantenha o arquivo privado, sem incluí-lo no checkout. O histórico de uso do app de desktop também pode complementar as leituras quando disponível.
-- **Gemini:** entre na sua conta no perfil desejado do Microsoft Edge. Configure `~/.pedroops/gemini-usage.json`, com permissão `600`, contendo `edgeProfile` (`Default` ou `Profile N`) e `expectedAccountHash` (SHA-256 do e-mail normalizado com espaços externos removidos e letras minúsculas). O helper lê somente os cookies necessários em modo de leitura, usa o Chaves do macOS para a criptografia existente e confirma a conta antes de consultar a cota. Não depende de uma janela aberta ou de Acessibilidade. Cookies ficam em memória e só são enviados ao provedor; não são gravados no JSON. Cotas de Apps e de CLI são fontes diferentes. A consulta usa um contrato web não documentado que pode mudar.
-- **OpenCode:** o histórico local pode complementar o uso quando a base correspondente existir. Ausência de dados não representa uma cota confirmada em zero.
-- **Preços e histórico:** estimativas dependem da tabela e das leituras disponíveis; não são uma fatura do provedor.
-- **Atividade:** o helper `Integrations/notch-notify.cjs` e a skill local em `Integrations/notch-activity/SKILL.md` recebem eventos explícitos. Ocultar Dot nas configurações preserva os demais eventos de transferência.
-- **Alertas e serviços:** configure um feed próprio nas preferências lidas pelos providers. Os feeds são opcionais; dados antigos e indisponibilidade têm estado próprio.
-
-Para Links, configure `pedro_capture_vault_path` com seu diretório local do Obsidian. A captura exige URL válida e gera Markdown para análise posterior; não faz leitura automática da página nem indexação do conteúdo remoto.
-
-## Diagnóstico
+A telemetria local coleta recursos do sistema. As sondas remotas usam SSH com destinos e identidades explícitos. Serviços, armazenamento e virtualização refletem os perfis configurados e não provisionam automaticamente uma infraestrutura.
 
 | Sintoma | O que conferir |
 | --- | --- |
-| KDE Connect indisponível ou `ServiceUnknown` | App aberto, sessão D-Bus do usuário, socket local e relay autorizado. Os fluxos locais e remotos têm reconexão independente. |
-| Notificação sem campo de resposta | Plugin ativo, permissão para o app de origem e existência de ação de resposta na notificação. |
-| Player remoto vazio | Player em execução e exposto pelo plugin de mídia; conexão ativa do dispositivo. |
-| Janela Android sem imagem | Aparelho acordado/desbloqueado quando necessário, transporte ADB válido e suporte ao display virtual. |
-| Depuração cai ao trocar de rede | Estado do helper, pausa, permissões, descoberta mDNS e confiança da rede solicitada pelo Android. |
-| Destino de processamento offline | SSH sem prompts, Python e caminho do worker, ferramentas instaladas e sessão/tarefa Windows persistente. |
-| Mesa inicia mas não controla outro computador | Clientes realmente conectados, permissões do Deskflow e disposição das telas. Um processo aberto sozinho não prova a conexão. |
-| Bateria parada | Horário da última leitura, internet do próprio publicador e execução do serviço/tarefa; suspensão não produz uma leitura nova. |
-| Captura ou mixer indisponível | Permissão da versão atual do app e requisitos da API usada; reabra e teste a função. |
-| App abre duplicado | Item de login, cópias antigas registradas e backups com o mesmo bundle ID. |
+| KDE Connect indisponível ou ServiceUnknown | Aplicativo aberto, sessão D-Bus correta, conexão local e relay autorizado. |
+| Mensagem sem campo de resposta | Permissões, plugin ativo e ação de resposta na notificação original. |
+| Player remoto vazio | Aplicativo em reprodução, plugin de mídia e conexão do dispositivo. |
+| Janela Android sem imagem | Estado de bloqueio e repouso, transporte de depuração e suporte ao display virtual. |
+| Depuração cai após mudança de rede | Pausa, permissões, descoberta e confiança da rede solicitada pelo Android. |
+| Processamento indisponível | Acesso SSH, Python, worker, ferramentas e execução persistente no destino. |
+| Mesa inicia sem controlar outro computador | Clientes conectados, permissões do Deskflow e disposição das telas. |
+| Bateria não muda | Horário da leitura, internet e execução do publicador no próprio cliente. |
+| Captura ou mixer indisponível | Permissões da versão atual do app e requisitos das APIs usadas. |
+| Aplicação abre duplicada | Item de login e registros de cópias antigas. |
 
-Logs e estado dos helpers ficam, em geral, em `~/.local/share/pedro-notch`; trabalhos e estado dos workers ficam em `~/.local/share/insight-notch`. Antes de compartilhar logs, remova conteúdo de notificações, caminhos pessoais, identificadores e credenciais.
+As verificações do projeto cobrem modelos, parsers, filas, transferências, notificações, fontes de uso e baterias. O helper de depuração possui verificações próprias da política de recuperação. Logs devem ser revisados antes de compartilhamento, pois podem conter conteúdo pessoal ou dados locais.
 
-## Segurança, limites e manutenção
+## Segurança e manutenção
 
-- Guarde tokens, cookies, chaves SSH, keystores e preferências reais fora do Git. Os arquivos de configuração dos exemplos são locais, não um mecanismo de sincronização de credenciais.
-- O pareamento de dispositivos e as permissões de entrada/captura continuam sendo decisões do usuário e do sistema operacional.
-- A central de baterias aceita apenas os campos previstos, autentica cada identidade, limita payload e requisições e não recebe mensagens, clipboard ou arquivos.
-- Widgets não garantem atualização instantânea; computadores suspensos não continuam executando seus publicadores.
-- Cancelamento e retomada das filas dependem do estado persistido, do acesso ao destino e da disponibilidade das ferramentas.
-- `Scripts/run-pedro-tests.sh` reúne as verificações de modelos, parsers, fontes de uso, filas, transferências, notificações e baterias. Há também testes Java da política do helper de depuração.
-- Em alterações de código, compile a aplicação e os componentes afetados. Uma mudança apenas neste README não exige reinstalar nem reautorizar o app.
+As credenciais de cada instalação permanecem fora do código compartilhado. Pareamento, permissões de entrada e autorização de captura continuam sob controle do usuário e do sistema operacional.
+
+A central de baterias limita campos, tamanho das requisições e frequência de acesso. Ela não recebe mensagens, clipboard ou arquivos. Os módulos de arquivo e processamento usam validação de destinos e locais permitidos.
+
+Alterações na implementação exigem verificar os componentes afetados e recompilar quando necessário. Atualizar apenas a documentação não exige reinstalar nem reautorizar a aplicação.
 
 ## Origem e licença
 
-Derivado do Boring Notch 2.7.3, sob [GPLv3](LICENSE). O [README original](UPSTREAM_README.md), os [avisos de terceiros](THIRD_PARTY_LICENSES) e os créditos presentes no código preservam a atribuição aos projetos de origem. KDE Connect, scrcpy, Deskflow, FFmpeg e os demais componentes externos mantêm suas próprias licenças.
+Derivado do Boring Notch 2.7.3, sob GPLv3. Os créditos originais e os avisos de terceiros acompanham o código. KDE Connect, scrcpy, Deskflow, FFmpeg e demais componentes externos mantêm suas próprias licenças.
